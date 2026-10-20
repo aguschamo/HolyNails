@@ -1,3 +1,5 @@
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
@@ -24,6 +26,24 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'email', 'password', 'nombre')
+
+    def validate_password(self, value):
+        # Aplica AUTH_PASSWORD_VALIDATORS (settings) a través del validador
+        # estándar de Django. Se construye un User NO persistido con los
+        # datos del formulario para que UserAttributeSimilarityValidator
+        # pueda comparar la contraseña con username, email, etc.
+        user = User(
+            username=self.initial_data.get('username', ''),
+            email=self.initial_data.get('email', ''),
+            nombre=self.initial_data.get('nombre', ''),
+        )
+        try:
+            validate_password(value, user=user)
+        except DjangoValidationError as exc:
+            # exc.messages: mensajes genéricos de Django, sin datos
+            # sensibles. Se devuelven bajo el campo 'password'.
+            raise serializers.ValidationError(exc.messages)
+        return value
 
     def create(self, validated_data):
         user = User.objects.create_user(

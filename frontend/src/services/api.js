@@ -1,4 +1,9 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+// En Vite, import.meta.env existe y define reemplaza VITE_API_URL en build.
+// El chequeo typeof permite que api.js también se importe en Node
+// (tests con node --test) sin tirar TypeError.
+const API_URL =
+  (typeof import.meta.env !== 'undefined' && import.meta.env.VITE_API_URL) ||
+  'http://127.0.0.1:8000'
 
 const ACCESS_KEY = 'hn_access'
 const REFRESH_KEY = 'hn_refresh'
@@ -83,7 +88,10 @@ async function refreshAccessToken() {
       throw new ApiError('Session changed during refresh', 401)
     }
 
-    setTokens({ access: data.access })
+    // Con ROTATE_REFRESH_TOKENS el backend devuelve un refresh nuevo y
+    // pone el anterior en la blacklist: hay que persistirlo o el próximo
+    // refresh fallirá.
+    setTokens({ access: data.access, refresh: data.refresh })
     return data.access
   })()
 

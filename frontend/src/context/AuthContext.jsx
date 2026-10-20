@@ -1,6 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { api, clearTokens, getAccessToken, onAuthCleared, setTokens } from '../services/api.js'
+import {
+  api,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  onAuthCleared,
+  setTokens,
+} from '../services/api.js'
 
 const AuthContext = createContext(null)
 
@@ -68,10 +75,18 @@ export function AuthProvider({ children }) {
       { skipAuth: true },
     )
     setTokens({ access: data.access, refresh: data.refresh })
-    const profile = await api.get('/api/auth/profile/')
-    const user = normalizeUser(profile)
-    setUsuario(user)
-    return user
+    try {
+      const profile = await api.get('/api/auth/profile/')
+      const user = normalizeUser(profile)
+      setUsuario(user)
+      return user
+    } catch (err) {
+      // Sin profile no hay sesión confiable: no dejamos tokens huérfanos
+      // en localStorage. clearTokens() incrementa el sessionEpoch, por lo
+      // que un refresh en vuelo no podrá restaurarlos.
+      clearTokens()
+      throw err
+    }
   }, [])
 
   const register = useCallback(async ({ nombre, username, email, password }) => {
@@ -85,8 +100,24 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     authActionRef.current = true
+    // Capturamos los tokens ANTES de limpiar: el request al backend los
+    // necesita (no hay tokens en storage una vez limpiada la sesión).
+    const refresh = getRefreshToken()
+    const access = getAccessToken()
     clearTokens()
     setUsuario(null)
+    // Revocación en el backend: fire-and-forget. Si falla (offline,
+    // backend caído), la sesión local igualmente queda limpia; el refresh
+    // seguirá siendo válido hasta expirar o rotarse.
+    if (refresh) {
+      api
+        .post(
+          '/api/auth/logout/',
+          { refresh },
+          { skipAuth: true, headers: { Authorization: `Bearer ${access}` } },
+        )
+        .catch(() => {})
+    }
   }, [])
 
   const value = useMemo(
