@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import agendarTurnoImg from '../assets/galeria/agendar-turno.png'
+import { useServicios } from '../hooks/useServicios.js'
+import { api } from '../services/api.js'
 
 function fechaDeHoy() {
   const hoy = new Date()
@@ -13,13 +15,24 @@ function fechaDeHoy() {
 }
 
 function Agendar() {
+  // `servicio` guarda el ID del catálogo (no el nombre): es lo que el
+  // backend espera en el campo `servicio` de POST /api/turnos/.
   const [servicio, setServicio] = useState('')
   const [fecha, setFecha] = useState('')
   const [hora, setHora] = useState('')
   const [aviso, setAviso] = useState(false)
   const [error, setError] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
-  function handleSubmit(e) {
+  const {
+    servicios,
+    loading: serviciosLoading,
+    error: serviciosError,
+  } = useServicios()
+
+  const sinServicios = !serviciosLoading && !serviciosError && servicios.length === 0
+
+  async function handleSubmit(e) {
     e.preventDefault()
     setAviso(false)
     setError('')
@@ -32,7 +45,29 @@ function Agendar() {
       setError('Fecha u hora fuera del horario de atención (09:00 a 20:00).')
       return
     }
-    setAviso(true)
+    if (!servicio) {
+      setError('Seleccioná un servicio para continuar.')
+      return
+    }
+    if (enviando) return
+
+    setEnviando(true)
+    try {
+      await api.post('/api/turnos/', {
+        fecha,
+        hora,
+        servicio: Number(servicio),
+      })
+      // Sólo se confirma después de una respuesta exitosa del backend.
+      setAviso(true)
+      setServicio('')
+      setFecha('')
+      setHora('')
+    } catch (err) {
+      setError(err.message || 'No se pudo registrar la reserva.')
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -63,8 +98,14 @@ function Agendar() {
 
                 {aviso && (
                   <div className="alert alert-info py-2 small" role="alert">
-                    La reserva se conectará al backend en el TP8. Por ahora solo
-                    queda registrada la vista.
+                    Reserva registrada correctamente. Está pendiente de
+                    confirmación.
+                  </div>
+                )}
+
+                {serviciosError && (
+                  <div className="alert alert-warning py-2 small" role="alert">
+                    {serviciosError}
                   </div>
                 )}
 
@@ -79,14 +120,24 @@ function Agendar() {
                       value={servicio}
                       onChange={(e) => setServicio(e.target.value)}
                       required
+                      disabled={serviciosLoading || servicios.length === 0}
                     >
                       <option value="" disabled>
-                        Seleccioná un servicio...
+                        {serviciosLoading
+                          ? 'Cargando servicios…'
+                          : 'Seleccioná un servicio...'}
                       </option>
-                      <option>SEMIPERMANENTE</option>
-                      <option>KAPPING</option>
-                      <option>ESCULPIDAS</option>
+                      {servicios.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nombre}
+                        </option>
+                      ))}
                     </select>
+                    {sinServicios && (
+                      <div className="form-text text-muted">
+                        No hay servicios disponibles por el momento.
+                      </div>
+                    )}
                   </div>
 
                   <div className="row g-3 mb-4">
@@ -122,8 +173,12 @@ function Agendar() {
                     </div>
                   </div>
 
-                  <button type="submit" className="btn btn-hn-dark w-100">
-                    Reservar turno
+                  <button
+                    type="submit"
+                    className="btn btn-hn-dark w-100"
+                    disabled={enviando || serviciosLoading || servicios.length === 0}
+                  >
+                    {enviando ? 'Enviando…' : 'Reservar turno'}
                   </button>
                 </form>
 

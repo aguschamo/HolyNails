@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import heroImg from '../assets/hero.jpg'
 import manicuraImg from '../assets/galeria/Manicura-png.png'
@@ -8,7 +7,7 @@ import galeria2 from '../assets/galeria/trabajo2.jpg'
 import galeria3 from '../assets/galeria/trabajo3.jpg'
 import galeria4 from '../assets/galeria/trabajo4.jpg'
 
-import { api } from '../services/api.js'
+import { useServicios } from '../hooks/useServicios.js'
 
 const trabajosGaleria = [
   { id: 1, imagen: galeria1 },
@@ -34,36 +33,11 @@ function formatearPrecio(precio) {
 }
 
 function Home() {
-  const [servicios, setServicios] = useState([])
-  const [serviciosLoading, setServiciosLoading] = useState(true)
-  const [serviciosError, setServiciosError] = useState(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function cargarServicios() {
-      setServiciosLoading(true)
-      setServiciosError(null)
-      try {
-        const data = await api.get('/api/servicios/')
-        if (!cancelled) {
-          setServicios(Array.isArray(data.results) ? data.results : [])
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setServicios([])
-          setServiciosError(err.message || 'No se pudieron cargar los servicios.')
-        }
-      } finally {
-        if (!cancelled) setServiciosLoading(false)
-      }
-    }
-
-    cargarServicios()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const {
+    servicios,
+    loading: serviciosLoading,
+    error: serviciosError,
+  } = useServicios()
   return (
     <>
       {/* HERO SECTION */}
