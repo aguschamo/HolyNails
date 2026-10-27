@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import miPerfilImg from '../assets/galeria/mi-perfil.png'
 import Avatar from '../components/Avatar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -30,12 +31,18 @@ function Perfil() {
         <div className="row justify-content-center">
           <div className="col-12 col-md-8 col-lg-6">
             <div className="text-center mb-4">
-              <h1 className="hn-section-title mb-1">✦ MI PERFIL ✦</h1>
+              <h1 className="hn-section-title hn-page-title mb-1">
+                <img
+                  src={miPerfilImg}
+                  alt="Mi perfil"
+                  className="hn-page-title-img"
+                />
+              </h1>
               <p className="text-muted small mb-0">Tus datos de Holy Nails</p>
             </div>
 
-            <div className="card hn-card border-0 shadow-sm p-4">
-              <div className="card-body">
+            <div className="card hn-card">
+              <div className="card-body p-4">
                 <div className="d-flex align-items-center gap-3 mb-4">
                   <Avatar nombre={usuario.nombre} photo={preview || usuario.photo} size="lg" />
                   <div>
@@ -65,6 +72,22 @@ function Perfil() {
                   />
                   <div className="form-text">
                     La edición de datos se conectará con la API en el TP8.
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="perfilTelefono" className="form-label">
+                    Teléfono de contacto
+                  </label>
+                  <input
+                    id="perfilTelefono"
+                    type="tel"
+                    className="form-control"
+                    placeholder="Se puede completar en el TP8"
+                    disabled
+                  />
+                  <div className="form-text">
+                    Opcional. Se conectará con la API en el TP8.
                   </div>
                 </div>
 

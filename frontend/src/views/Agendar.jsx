@@ -2,6 +2,8 @@ import { useState } from 'react'
 
 import { Link } from 'react-router-dom'
 
+import agendarTurnoImg from '../assets/galeria/agendar-turno.png'
+
 function fechaDeHoy() {
   const hoy = new Date()
   const anio = hoy.getFullYear()
@@ -39,14 +41,20 @@ function Agendar() {
         <div className="row justify-content-center">
           <div className="col-12 col-md-8 col-lg-6">
             <div className="text-center mb-4">
-              <h1 className="hn-section-title mb-1">✦ AGENDAR TURNO ✦</h1>
+              <h1 className="hn-section-title hn-page-title mb-1">
+                <img
+                  src={agendarTurnoImg}
+                  alt="Agendar turno"
+                  className="hn-page-title-img"
+                />
+              </h1>
               <p className="text-muted small mb-0">
                 Elegí el servicio que quieras y el momento que te quede cómodo
               </p>
             </div>
 
-            <div className="card hn-card border-0 shadow-sm p-4">
-              <div className="card-body">
+            <div className="card hn-card">
+              <div className="card-body p-4">
                 {error && (
                   <div className="alert alert-danger py-2 small" role="alert">
                     {error}
@@ -114,8 +122,8 @@ function Agendar() {
                     </div>
                   </div>
 
-                  <button type="submit" className="btn btn-hn-dark w-100 fw-bold">
-                    RESERVAR TURNO ✨
+                  <button type="submit" className="btn btn-hn-dark w-100">
+                    Reservar turno
                   </button>
                 </form>
 

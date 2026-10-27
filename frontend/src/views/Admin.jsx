@@ -21,7 +21,7 @@ function Admin() {
         <div className="row g-4">
           {MODULOS.map((m) => (
             <div className="col-12 col-md-6" key={m.titulo}>
-              <div className="card hn-card border-0 shadow-sm h-100">
+              <div className="card hn-card h-100">
                 <div className="card-body p-4">
                   <div className="hn-card-icon mb-2">{m.icono}</div>
                   <h2 className="h6 fw-bold mb-1">{m.titulo}</h2>
@@ -36,8 +36,8 @@ function Admin() {
         </div>
 
         <div className="text-center mt-5">
-          <Link to="/perfil" className="btn btn-hn-outline rounded-pill fw-bold">
-            VER MI PERFIL
+          <Link to="/perfil" className="btn btn-hn-outline">
+            Ver mi perfil
           </Link>
         </div>
       </div>
