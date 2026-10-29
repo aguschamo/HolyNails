@@ -41,8 +41,8 @@ describe('Home — catálogo de servicios', () => {
     expect(await screen.findByText('Semipermanente')).toBeTruthy()
     expect(screen.getByText('Kapping')).toBeTruthy()
 
-    // El markup anterior antepone el emoji 💰 al precio en la tarjeta.
-    expect(screen.getByText(/5\.000/)).toBeTruthy()
+    const precioEsperado = `$ ${(5000).toLocaleString('es-AR')}`
+    expect(screen.getByText(precioEsperado)).toBeTruthy()
 
     expect(api.get).toHaveBeenCalledWith('/api/servicios/')
     expect(screen.queryByText('No hay servicios disponibles por el momento.')).toBeNull()

@@ -56,7 +56,7 @@ function llenarFormulario() {
 }
 
 function enviarFormulario() {
-  const boton = screen.getByRole('button', { name: /RESERVAR TURNO|Enviando/ })
+  const boton = screen.getByRole('button', { name: /Reservar turno|Enviando/ })
   fireEvent.submit(boton.closest('form'))
 }
 
@@ -83,7 +83,7 @@ describe('Agendar — catálogo', () => {
       await screen.findByText('No hay servicios disponibles por el momento.'),
     ).toBeTruthy()
     expect(screen.getByLabelText('Servicio').disabled).toBe(true)
-    expect(screen.getByRole('button', { name: 'RESERVAR TURNO ✨' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Reservar turno' }).disabled).toBe(true)
   })
 
   it('error de API al cargar el catálogo se muestra y bloquea el envío', async () => {
@@ -91,7 +91,7 @@ describe('Agendar — catálogo', () => {
     renderAgendar()
 
     expect(await screen.findByText('No se pudo conectar con el servidor.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'RESERVAR TURNO ✨' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Reservar turno' }).disabled).toBe(true)
   })
 })
 
@@ -169,7 +169,7 @@ describe('Agendar — reserva', () => {
     expect(await screen.findByText('No se pudo conectar con el servidor.')).toBeTruthy()
     expect(screen.queryByText(/Reserva registrada correctamente/)).toBeNull()
     // Vuelve a quedar habilitado para reintentar
-    expect(screen.getByRole('button', { name: 'RESERVAR TURNO ✨' }).disabled).toBe(false)
+    expect(screen.getByRole('button', { name: 'Reservar turno' }).disabled).toBe(false)
   })
 
   it('validación local: fecha anterior a hoy no dispara el request', async () => {
