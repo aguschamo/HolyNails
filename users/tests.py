@@ -286,6 +286,78 @@ class ProfileRoleInmutableTestCase(APITestCase):
         self.assertEqual(self.user.role, User.Roles.ADMIN)
 
 
+class EmailUnicoPerfilTestCase(APITestCase):
+    """El email del perfil no puede cambiarse por el de otra cuenta.
+
+    Misma regla que RegisterSerializer (UniqueValidator), aplicada vía
+    UserSerializer al endpoint de perfil. El email propio se conserva
+    porque UniqueValidator excluye la instancia en actualizaciones.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.password = 'Passw0rd-123'
+        self.user = User.objects.create_user(
+            username='cliente-email',
+            email='cliente-email@holy.test',
+            password=self.password,
+            nombre='Cliente Email',
+            role=User.Roles.CLIENTE,
+        )
+        self.other = User.objects.create_user(
+            username='otra-cuenta',
+            email='ocupado@holy.test',
+            password=self.password,
+            nombre='Otra Cuenta',
+            role=User.Roles.CLIENTE,
+        )
+        self.profile_url = reverse('profile')
+        tokens = self.client.post(
+            reverse('token_obtain_pair'),
+            {'email': self.user.email, 'password': self.password},
+            format='json',
+        ).data
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {tokens["access"]}')
+
+    def test_cambiar_email_por_el_de_otra_cuenta_es_rechazado(self):
+        res = self.client.patch(
+            self.profile_url, {'email': self.other.email}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST, res.content)
+        self.assertIn('email', res.data)
+        # Ni la respuesta ni la BD reflejan el cambio
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'cliente-email@holy.test')
+        self.other.refresh_from_db()
+        self.assertEqual(self.other.email, 'ocupado@holy.test')
+
+    def test_conservar_el_email_propio_al_actualizar_perfil(self):
+        # Mismo email que ya tiene: UniqueValidator debe excluirla.
+        res = self.client.patch(
+            self.profile_url,
+            {'email': self.user.email, 'nombre': 'Nombre Nuevo'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.content)
+        self.assertEqual(res.data['email'], 'cliente-email@holy.test')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'cliente-email@holy.test')
+        self.assertEqual(self.user.nombre, 'Nombre Nuevo')
+
+    def test_actualizacion_normal_del_perfil_sin_email(self):
+        # PATCH típico (solo nombre), sin tocar email: sigue funcionando
+        # y el email queda intacto.
+        res = self.client.patch(
+            self.profile_url, {'nombre': 'Solo Nombre'}, format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.content)
+        self.assertEqual(res.data['nombre'], 'Solo Nombre')
+        self.assertEqual(res.data['email'], 'cliente-email@holy.test')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'cliente-email@holy.test')
+        self.assertEqual(self.user.role, User.Roles.CLIENTE)
+
+
 class AuthPasswordValidationTestCase(APITestCase):
     """El backend aplica AUTH_PASSWORD_VALIDATORS en el registro."""
 

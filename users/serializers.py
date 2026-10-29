@@ -16,7 +16,19 @@ class UserSerializer(serializers.ModelSerializer):
     un usuario autenticado no puede auto-escalarse (ej: CLIENTE -> ADMIN).
     La gestión de roles autorizada vive en AdminUserSerializer, usada
     exclusivamente por UserViewSet (IsAdminUser).
+
+    `email` valida unicidad con el mismo criterio que RegisterSerializer:
+    no puede cambiarse por el email de otra cuenta, pero sí conservarse el
+    propio (UniqueValidator excluye la instancia en actualizaciones).
+    Se conservan `required=False` y `allow_blank=True` para no alterar el
+    comportamiento existente del PUT /api/auth/profile/.
     """
+
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True,
+        validators=[UniqueValidator(queryset=User.objects.all())],
+    )
 
     class Meta:
         model = User
