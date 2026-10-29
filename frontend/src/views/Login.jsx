@@ -2,24 +2,23 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext.jsx'
-import AuthModal from '../components/AuthModal.jsx'
-import logo from '../assets/galeria/logo.png'
 
 const RUTAS_CLIENTE = ['/agendar', '/mis-turnos', '/perfil']
 
 function Login() {
-  const { login, isAuthenticated, isLoading } = useAuth()
+  const { login, isAuthenticated, role, isLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from?.pathname
+  const registroOk = Boolean(location.state?.registroOk)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  if (!isLoading && isAuthenticated && !isSubmitting) {
-    return <Navigate to="/" replace />
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to={role === 'admin' ? '/admin' : '/perfil'} replace />
   }
 
   async function handleSubmit(e) {
@@ -29,9 +28,13 @@ function Login() {
 
     try {
       const sesion = await login(email, password)
-      const puedeIrAOrigen =
-        sesion.role === 'admin' ? from === '/admin' : RUTAS_CLIENTE.includes(from)
-      navigate(puedeIrAOrigen ? from : '/', { replace: true })
+      const destino =
+        sesion.role === 'admin'
+          ? '/admin'
+          : RUTAS_CLIENTE.includes(from)
+            ? from
+            : '/perfil'
+      navigate(destino, { replace: true })
     } catch (err) {
       if (err.status === 0) {
         setError(err.message)
@@ -45,84 +48,86 @@ function Login() {
     }
   }
 
-  function handleCerrar() {
-    navigate('/', { replace: true })
-  }
-
   return (
-    <AuthModal
-      ariaLabel="Iniciar sesión"
-      closeLabel="Cerrar inicio de sesión"
-      onClose={handleCerrar}
-    >
-      <h1 className="text-center mb-1">
-        <img
-          src={logo}
-          alt="Holy Nails"
-          className="hn-auth-logo"
-          width={2000}
-          height={2000}
-        />
-      </h1>
-      <p className="text-center text-muted small mb-4">
-        Iniciá sesión para reservar tus turnos
-      </p>
+    <div className="min-vh-100 d-flex align-items-center hn-auth-bg py-5">
+      <div className="container">
+        <div className="row justify-content-center">
+          <div className="col-12 col-sm-8 col-md-6 col-lg-4">
+            <div className="card hn-card border-0 shadow-sm p-4">
+              <div className="card-body">
+                <h1 className="hn-section-title fs-3 text-center mb-1">
+                  holy nails ✨
+                </h1>
+                <p className="text-center text-muted small mb-4">
+                  Iniciá sesión para reservar tus turnos
+                </p>
 
-      {error && (
-        <div className="alert alert-danger py-2 small" role="alert">
-          {error}
+                {registroOk && (
+                  <div className="alert alert-success py-2 small" role="alert">
+                    ¡Cuenta creada! Ya podés iniciar sesión.
+                  </div>
+                )}
+
+                {error && (
+                  <div className="alert alert-danger py-2 small" role="alert">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-3">
+                    <label htmlFor="loginEmail" className="form-label">
+                      Correo electrónico
+                    </label>
+                    <input
+                      id="loginEmail"
+                      type="email"
+                      className="form-control"
+                      placeholder="tucorreo@ejemplo.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="loginPassword" className="form-label">
+                      Contraseña
+                    </label>
+                    <input
+                      id="loginPassword"
+                      type="password"
+                      className="form-control"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-hn-dark w-100 fw-bold"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'INICIANDO…' : 'INICIAR SESIÓN'}
+                  </button>
+                </form>
+
+                <p className="small text-muted text-center mt-3 mb-0">
+                  ¿No tenés cuenta?{' '}
+                  <Link to="/register" className="fw-bold">
+                    Registrate
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <div className="mb-3">
-          <label htmlFor="loginEmail" className="form-label">
-            Correo electrónico
-          </label>
-          <input
-            id="loginEmail"
-            type="email"
-            className="form-control"
-            placeholder="tucorreo@ejemplo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="loginPassword" className="form-label">
-            Contraseña
-          </label>
-          <input
-            id="loginPassword"
-            type="password"
-            className="form-control"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="btn btn-hn-dark w-100"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Iniciando…' : 'Iniciar sesión'}
-        </button>
-      </form>
-
-      <p className="small text-muted text-center mt-3 mb-0">
-        ¿No tenés cuenta?{' '}
-        <Link to="/register" className="fw-bold">
-          Registrate
-        </Link>
-      </p>
-    </AuthModal>
+      </div>
+    </div>
   )
 }
 

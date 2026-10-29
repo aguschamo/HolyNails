@@ -1,64 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
-import logo from '../assets/galeria/logo.png'
 import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from './Avatar.jsx'
 
 function Navbar() {
   const [menuAbierto, setMenuAbierto] = useState(false)
-  const [cuentaAbierta, setCuentaAbierta] = useState(false)
   const { usuario, role, logout } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
-  const pendienteInicio = useRef(false)
-  const cuentaRef = useRef(null)
-  const cuentaTriggerRef = useRef(null)
 
   function cerrarMenu() {
     setMenuAbierto(false)
-    setCuentaAbierta(false)
-  }
-
-  useEffect(() => {
-    if (pendienteInicio.current && location.pathname === '/') {
-      pendienteInicio.current = false
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }, [location.pathname])
-
-  useEffect(() => {
-    if (!cuentaAbierta) return
-
-    function alPulsarFuera(e) {
-      if (cuentaRef.current && !cuentaRef.current.contains(e.target)) {
-        setCuentaAbierta(false)
-      }
-    }
-
-    function alTeclar(e) {
-      if (e.key === 'Escape') {
-        setCuentaAbierta(false)
-        cuentaTriggerRef.current?.focus()
-      }
-    }
-
-    document.addEventListener('mousedown', alPulsarFuera)
-    document.addEventListener('keydown', alTeclar)
-    return () => {
-      document.removeEventListener('mousedown', alPulsarFuera)
-      document.removeEventListener('keydown', alTeclar)
-    }
-  }, [cuentaAbierta])
-
-  function irInicio(e) {
-    cerrarMenu()
-    if (location.pathname === '/') {
-      e.preventDefault()
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    } else {
-      pendienteInicio.current = true
-    }
   }
 
   function irASeccion(id) {
@@ -77,7 +29,6 @@ function Navbar() {
   }
 
   function handleLogout() {
-    setCuentaAbierta(false)
     logout()
     navigate('/login', { replace: true })
   }
@@ -85,30 +36,53 @@ function Navbar() {
   const enlaces = (
     <ul className="navbar-nav mx-auto mb-2 mb-lg-0 align-items-center">
       <li className="nav-item">
-        <Link className="nav-link hn-nav-link" to="/" onClick={irInicio}>
-          Inicio
+        <Link className="nav-link hn-nav-link" to="/" onClick={cerrarMenu}>
+          INICIO
         </Link>
       </li>
       <li className="nav-item">
         <Link className="nav-link hn-nav-link" to="/#servicios" onClick={() => irASeccion('servicios')}>
-          Servicios
+          SERVICIOS
         </Link>
       </li>
       <li className="nav-item">
         <Link className="nav-link hn-nav-link" to="/#galeria" onClick={() => irASeccion('galeria')}>
-          Galería
+          GALERÍA
         </Link>
       </li>
       <li className="nav-item">
         <Link className="nav-link hn-nav-link" to="/#contacto" onClick={() => irASeccion('contacto')}>
-          Contacto
+          CONTACTO
         </Link>
       </li>
+
+      {usuario && role === 'cliente' && (
+        <>
+          <li className="nav-item">
+            <Link className="nav-link hn-nav-link" to="/agendar" onClick={cerrarMenu}>
+              AGENDAR
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link className="nav-link hn-nav-link" to="/mis-turnos" onClick={cerrarMenu}>
+              MIS TURNOS
+            </Link>
+          </li>
+        </>
+      )}
 
       {usuario && role === 'admin' && (
         <li className="nav-item">
           <Link className="nav-link hn-nav-link" to="/admin" onClick={cerrarMenu}>
-            Panel admin
+            PANEL ADMIN
+          </Link>
+        </li>
+      )}
+
+      {usuario && (
+        <li className="nav-item">
+          <Link className="nav-link hn-nav-link" to="/perfil" onClick={cerrarMenu}>
+            PERFIL
           </Link>
         </li>
       )}
@@ -118,23 +92,8 @@ function Navbar() {
   return (
     <nav className="navbar navbar-expand-lg sticky-top hn-navbar">
       <div className="container">
-        <Link className="navbar-brand hn-brand" to="/" onClick={irInicio}>
-          <img
-            src={logo}
-            alt="Holy Nails"
-            width={118}
-            height={118}
-            className="hn-brand-logo"
-          />
-        </Link>
-
-        {/* Agendar turno: siempre visible en la barra superior */}
-        <Link
-          to={usuario ? '/agendar' : '/login'}
-          className="btn btn-hn-dark"
-          onClick={cerrarMenu}
-        >
-          Agendar turno
+        <Link className="navbar-brand hn-brand" to="/" onClick={cerrarMenu}>
+          holy nails ✨
         </Link>
 
         <button
@@ -151,77 +110,35 @@ function Navbar() {
         <div className={`collapse navbar-collapse${menuAbierto ? ' show' : ''}`} id="hnNavbarMenu">
           {enlaces}
 
-          {/* Acceso a cuenta / autenticación dentro del menú colapsable */}
-          {usuario ? (
-            <div className="hn-account mt-2" ref={cuentaRef}>
-              <button
-                type="button"
-                ref={cuentaTriggerRef}
-                className="hn-account-trigger"
-                aria-haspopup="true"
-                aria-expanded={cuentaAbierta}
-                aria-controls="hnAccountMenu"
-                aria-label={`Menú de cuenta de ${usuario.nombre}`}
-                onClick={() => setCuentaAbierta((prev) => !prev)}
-              >
-                <span aria-hidden="true">
+          <div className="d-flex flex-nowrap align-items-center justify-content-center gap-2 mt-2 mt-lg-0">
+            {usuario ? (
+              <>
+                <span className="small text-dark d-flex align-items-center gap-2">
                   <Avatar nombre={usuario.nombre} photo={usuario.photo} size="sm" />
+                  {usuario.nombre}
                 </span>
-                <span className="hn-account-name">{usuario.nombre}</span>
-                <svg
-                  className="hn-account-chevron"
-                  aria-hidden="true"
-                  focusable="false"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <button
+                  type="button"
+                  className="btn btn-hn-pink rounded-pill fw-bold"
+                  onClick={handleLogout}
                 >
-                  <path d="M2.5 4.5 6 8l3.5-3.5" />
-                </svg>
-              </button>
-
-              {cuentaAbierta && (
-                <div className="hn-account-menu" id="hnAccountMenu">
-                  <Link
-                    to="/perfil"
-                    className="hn-account-item"
-                    onClick={() => setCuentaAbierta(false)}
-                  >
-                    Mi perfil
-                  </Link>
-                  <Link
-                    to="/mis-turnos"
-                    className="hn-account-item"
-                    onClick={() => setCuentaAbierta(false)}
-                  >
-                    Mis turnos
-                  </Link>
-                  <hr className="hn-account-sep" />
-                  <button
-                    type="button"
-                    className="hn-account-item hn-account-logout"
-                    onClick={handleLogout}
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              <Link to="/login" className="hn-nav-link" onClick={cerrarMenu}>
-                Iniciar sesión
-              </Link>
-              <Link to="/register" className="hn-nav-link" onClick={cerrarMenu}>
-                Registrarme
-              </Link>
-            </>
-          )}
+                  CERRAR SESIÓN ⏻
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/agendar" className="btn btn-hn-dark rounded-pill fw-bold" onClick={cerrarMenu}>
+                  AGENDAR TURNO
+                </Link>
+                <Link to="/register" className="btn btn-hn-outline rounded-pill fw-bold" onClick={cerrarMenu}>
+                  REGISTRARTE
+                </Link>
+                <Link to="/login" className="btn btn-hn-pink rounded-pill fw-bold" onClick={cerrarMenu}>
+                  INICIAR SESIÓN👤
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </nav>

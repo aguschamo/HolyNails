@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 
 import Layout from './components/Layout.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
@@ -12,25 +12,16 @@ import MisTurnos from './views/MisTurnos.jsx'
 import Perfil from './views/Perfil.jsx'
 import Register from './views/Register.jsx'
 
-function HomeShell() {
-  return (
-    <>
-      <Home />
-      <Outlet />
-    </>
-  )
-}
-
 function App() {
   return (
     <Routes>
+      {/* Rutas públicas standalone */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* Vistas con Navbar + Footer */}
       <Route element={<Layout />}>
-        {/* Home siempre montado: /login y /register se superponen como modal */}
-        <Route element={<HomeShell />}>
-          <Route index element={<></>} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Route>
+        <Route path="/" element={<Home />} />
 
         {/* Cualquier usuario autenticado */}
         <Route element={<ProtectedRoute />}>
