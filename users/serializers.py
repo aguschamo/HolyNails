@@ -10,9 +10,28 @@ from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """Datos del usuario para el endpoint de perfil (ProfileView).
+
+    `role` es de solo lectura: el rol no se modifica vía perfil, de modo que
+    un usuario autenticado no puede auto-escalarse (ej: CLIENTE -> ADMIN).
+    La gestión de roles autorizada vive en AdminUserSerializer, usada
+    exclusivamente por UserViewSet (IsAdminUser).
+    """
+
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'nombre', 'role')
+        read_only_fields = ('role',)
+
+
+class AdminUserSerializer(UserSerializer):
+    """Gestión administrativa de usuarios (UserViewSet, IsAdminUser).
+
+    Único serializer API que permite modificar `role`; al estar protegido
+    por IsAdminUser, solo el staff de Django puede usarlo.
+    """
+
+    role = serializers.ChoiceField(choices=User.Roles.choices, required=False)
 
 
 

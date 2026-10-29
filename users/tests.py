@@ -209,6 +209,83 @@ class AuthJWTTestCase(APITestCase):
             RefreshToken(str(refresh))
 
 
+class ProfileRoleInmutableTestCase(APITestCase):
+    """El rol no puede modificarse vía perfil (evita auto-escalada CLIENTE→ADMIN).
+
+    `role` es de solo lectura en UserSerializer (usado por ProfileView). La
+    gestión de roles autorizada vive en UserViewSet (IsAdminUser), que usa
+    AdminUserSerializer.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.password = 'Passw0rd-123'
+        self.user = User.objects.create_user(
+            username='cliente-rol',
+            email='cliente-rol@holy.test',
+            password=self.password,
+            nombre='Cliente Rol',
+            role=User.Roles.CLIENTE,
+        )
+        self.profile_url = reverse('profile')
+        tokens = self.client.post(
+            reverse('token_obtain_pair'),
+            {'email': self.user.email, 'password': self.password},
+            format='json',
+        ).data
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {tokens["access"]}')
+
+    def test_cliente_no_puede_convertirse_en_admin(self):
+        # Ataque de escalada clásico: PATCH al perfil enviando role=ADMIN.
+        res = self.client.patch(
+            self.profile_url, {'role': 'ADMIN'}, format='json'
+        )
+        # El campo es read-only: la petición se procesa pero lo ignora
+        # (misma semántica que `usuario` en TurnoSerializer).
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.content)
+        self.assertEqual(res.data['role'], User.Roles.CLIENTE)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, User.Roles.CLIENTE)
+
+    def test_actualizacion_normal_del_perfil_sigue_funcionando(self):
+        # Los campos editables siguen funcionando, incluso si la petición
+        # mezcla un intento de cambio de rol.
+        res = self.client.patch(
+            self.profile_url,
+            {'nombre': 'Cliente Editado', 'role': 'ADMIN'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.content)
+        self.assertEqual(res.data['nombre'], 'Cliente Editado')
+        self.assertEqual(res.data['role'], User.Roles.CLIENTE)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.nombre, 'Cliente Editado')
+        self.assertEqual(self.user.role, User.Roles.CLIENTE)
+
+    def test_staff_puede_gestionar_roles_via_users(self):
+        # Mecanismo autorizado preservado: UserViewSet exige is_staff.
+        staff = User.objects.create_user(
+            username='staff1',
+            email='staff1@holy.test',
+            password=self.password,
+            is_staff=True,
+        )
+        tokens = self.client.post(
+            reverse('token_obtain_pair'),
+            {'email': staff.email, 'password': self.password},
+            format='json',
+        ).data
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {tokens["access"]}')
+        res = self.client.patch(
+            reverse('user-detail', args=[self.user.pk]),
+            {'role': User.Roles.ADMIN},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.content)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, User.Roles.ADMIN)
+
+
 class AuthPasswordValidationTestCase(APITestCase):
     """El backend aplica AUTH_PASSWORD_VALIDATORS en el registro."""
 

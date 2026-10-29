@@ -9,7 +9,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User
-from .serializers import EmailTokenObtainPairSerializer, RegisterSerializer, UserSerializer
+from .serializers import (
+    AdminUserSerializer,
+    EmailTokenObtainPairSerializer,
+    RegisterSerializer,
+    UserSerializer,
+)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -72,5 +77,5 @@ class LogoutView(APIView):
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = AdminUserSerializer
     permission_classes = [permissions.IsAdminUser]
