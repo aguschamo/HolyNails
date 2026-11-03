@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'drf_spectacular',
+    'rest_framework_simplejwt.token_blacklist',
 
     'core',
     'users',
@@ -107,11 +108,24 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # Throttling: solo se aplica en las vistas de auth que declaran
+    # throttle_classes (login y registro). No hay throttle global.
+    # Limitación conocida: el cache por defecto (LocMem) es por proceso;
+    # con múltiples workers o reinicios los contadores no se comparten.
+    'DEFAULT_THROTTLE_RATES': {
+        'auth': '5/min',
+        'register': '10/hour',
+    },
 }
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # Cada uso de un refresh token emite uno nuevo y pone el anterior en la
+    # blacklist: un refresh robado deja de servir después de su primer uso.
+    # Los access tokens ya emitidos siguen siendo válidos hasta su expiración.
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 }
 
 

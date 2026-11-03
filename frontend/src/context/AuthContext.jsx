@@ -1,91 +1,137 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+
+import {
+  api,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  onAuthCleared,
+  setTokens,
+} from '../services/api.js'
 
 const AuthContext = createContext(null)
 
-// MOCK de autenticación (TP4/TP5): las passwords viven solo en el cliente.
-// TP8: se reemplazan por API + JWT (POST /api/auth/login/), password solo en el servidor.
-const USUARIOS_INICIALES = [
-  {
-    id: 1,
-    nombre: 'Cliente Demo',
-    email: 'cliente@holynails.com',
-    password: '1234',
-    role: 'cliente',
-    photo: null,
-  },
-  {
-    id: 2,
-    nombre: 'Admin Holy Nails',
-    email: 'admin@holynails.com',
-    password: '1234',
-    role: 'admin',
-    photo: null,
-  },
-]
+function normalizeRole(role) {
+  return role ? role.toLowerCase() : null
+}
 
-function modeloUsuario({ id, nombre, email, role, photo }) {
-  return { id, nombre, email, role, photo }
+function normalizeUser(profile) {
+  if (!profile) return null
+  return {
+    id: profile.id,
+    nombre: profile.nombre || '',
+    email: profile.email || '',
+    username: profile.username || '',
+    role: normalizeRole(profile.role),
+    photo: null,
+  }
 }
 
 export function AuthProvider({ children }) {
-  const [usuarios, setUsuarios] = useState(USUARIOS_INICIALES)
-  const [usuario, setUsuario] = useState(() => {
-    try {
-      const sesionGuardada = sessionStorage.getItem('hn_sesion')
-      return sesionGuardada ? JSON.parse(sesionGuardada) : null
-    } catch {
-      return null
-    }
-  })
+  const [usuario, setUsuario] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  // Se activa cuando ocurre login o logout mientras restore() está pendiente,
+  // para que restore no sobrescriba el resultado de esa acción posterior.
+  const authActionRef = useRef(false)
 
-  // Sincroniza la sesión con sessionStorage: persiste al loguearse, limpia al cerrar sesión o hacer F5-logout.
+  // Restaura la sesión al montar: si hay access token, verifica el perfil contra el backend.
+  // api.js maneja el refresh automático si el access está vencido.
   useEffect(() => {
-    if (usuario) {
-      sessionStorage.setItem('hn_sesion', JSON.stringify(usuario))
-    } else {
-      sessionStorage.removeItem('hn_sesion')
-    }
-  }, [usuario])
+    let cancelled = false
 
-  const login = useCallback((email, password) => {
-    const encontrado = usuarios.find(
-      (u) =>
-        u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
-    )
-    if (!encontrado) return null
-    const sesion = modeloUsuario(encontrado)
-    setUsuario(sesion)
-    return sesion
-  }, [usuarios])
-
-  const register = useCallback((nombre, email, password) => {
-    if (usuarios.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())) {
-      return false
+    async function restore() {
+      if (!getAccessToken()) {
+        if (!cancelled) setIsLoading(false)
+        return
+      }
+      try {
+        const profile = await api.get('/api/auth/profile/')
+        if (!cancelled && !authActionRef.current) setUsuario(normalizeUser(profile))
+      } catch {
+        if (!cancelled && !authActionRef.current) setUsuario(null)
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-    const nuevo = {
-      id: crypto.randomUUID(),
-      nombre: nombre.trim() || null,
-      email: email.trim().toLowerCase(),
-      password,
-      role: 'cliente',
-      photo: null,
-    }
-    setUsuarios((prev) => [...prev, nuevo])
-    return true
-  }, [usuarios])
 
-  const logout = useCallback(() => {
-    setUsuario(null)
+    restore()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const value = useMemo(() => ({
-    usuario,
-    role: usuario ? usuario.role : null,
-    isAuthenticated: Boolean(usuario),
-    login,
-    register,
-    logout,
-  }), [usuario, login, register, logout])
+  // Si api.js limpia los tokens (refresh falló), sincroniza el estado.
+  useEffect(() => {
+    return onAuthCleared(() => {
+      setUsuario(null)
+    })
+  }, [])
+
+  const login = useCallback(async (email, password) => {
+    authActionRef.current = true
+    const data = await api.post(
+      '/api/auth/login/',
+      { email, password },
+      { skipAuth: true },
+    )
+    setTokens({ access: data.access, refresh: data.refresh })
+    try {
+      const profile = await api.get('/api/auth/profile/')
+      const user = normalizeUser(profile)
+      setUsuario(user)
+      return user
+    } catch (err) {
+      // Sin profile no hay sesión confiable: no dejamos tokens huérfanos
+      // en localStorage. clearTokens() incrementa el sessionEpoch, por lo
+      // que un refresh en vuelo no podrá restaurarlos.
+      clearTokens()
+      throw err
+    }
+  }, [])
+
+  const register = useCallback(async ({ nombre, username, email, password }) => {
+    await api.post(
+      '/api/auth/register/',
+      { nombre, username, email, password },
+      { skipAuth: true },
+    )
+    // El backend no devuelve tokens: el usuario debe iniciar sesión después.
+  }, [])
+
+  const logout = useCallback(() => {
+    authActionRef.current = true
+    // Capturamos los tokens ANTES de limpiar: el request al backend los
+    // necesita (no hay tokens en storage una vez limpiada la sesión).
+    const refresh = getRefreshToken()
+    const access = getAccessToken()
+    clearTokens()
+    setUsuario(null)
+    // Revocación en el backend: fire-and-forget. Si falla (offline,
+    // backend caído), la sesión local igualmente queda limpia; el refresh
+    // seguirá siendo válido hasta expirar o rotarse.
+    if (refresh) {
+      api
+        .post(
+          '/api/auth/logout/',
+          { refresh },
+          { skipAuth: true, headers: { Authorization: `Bearer ${access}` } },
+        )
+        .catch(() => {})
+    }
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      usuario,
+      role: usuario ? usuario.role : null,
+      isAuthenticated: Boolean(usuario),
+      isLoading,
+      login,
+      register,
+      logout,
+    }),
+    [usuario, isLoading, login, register, logout],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
