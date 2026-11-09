@@ -81,4 +81,39 @@ describe('useServicios', () => {
     expect(result.current.servicios).toEqual([])
     expect(result.current.error).toBeNull()
   })
+
+  it('recorre todas las páginas del catálogo (A2)', async () => {
+    // PAGE_SIZE=10: con 12 servicios hay dos páginas; el hook debe
+    // acumular ambas (fetchTodosLosRecursos sigue `next`).
+    const pagina1 = {
+      count: 12,
+      next: 'http://testserver/api/servicios/?page=2',
+      previous: null,
+      results: Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1,
+        nombre: `Servicio ${i + 1}`,
+      })),
+    }
+    const pagina2 = {
+      count: 12,
+      next: null,
+      previous: 'http://testserver/api/servicios/',
+      results: [
+        { id: 11, nombre: 'Servicio 11' },
+        { id: 12, nombre: 'Servicio 12' },
+      ],
+    }
+    api.get.mockImplementation((url) =>
+      Promise.resolve(String(url).includes('page=2') ? pagina2 : pagina1),
+    )
+
+    const { result } = renderHook(() => useServicios())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(api.get).toHaveBeenCalledTimes(2)
+    expect(api.get).toHaveBeenLastCalledWith('http://testserver/api/servicios/?page=2')
+    expect(result.current.servicios).toHaveLength(12)
+    expect(result.current.servicios[11]).toEqual({ id: 12, nombre: 'Servicio 12' })
+    expect(result.current.error).toBeNull()
+  })
 })

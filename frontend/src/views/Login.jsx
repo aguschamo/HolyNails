@@ -6,6 +6,7 @@ import AuthModal from '../components/AuthModal.jsx'
 import logo from '../assets/galeria/logo.png'
 
 const RUTAS_CLIENTE = ['/agendar', '/mis-turnos', '/perfil']
+const RUTAS_PERSONAL = ['/mi-agenda']
 
 function Login() {
   const { login, isAuthenticated, isLoading } = useAuth()
@@ -29,9 +30,27 @@ function Login() {
 
     try {
       const sesion = await login(email, password)
-      const puedeIrAOrigen =
-        sesion.role === 'admin' ? from === '/admin' : RUTAS_CLIENTE.includes(from)
-      navigate(puedeIrAOrigen ? from : '/', { replace: true })
+      // Destino por rol: ADMIN vuelve a su origen (o /admin) —incluido
+      // el flujo de reservas al que accede desde B10.0.2, el panel y sus
+      // subrutas /admin/* (B10.4), o /perfil—, PERSONAL a /mi-agenda y
+      // CLIENTE a su flujo de reservas (o /).
+      let destino = '/'
+      if (sesion.role === 'admin') {
+        const origenAdmin =
+          from === '/admin' || (typeof from === 'string' && from.startsWith('/admin/'))
+        destino = origenAdmin || RUTAS_CLIENTE.includes(from) ? from : '/'
+      } else if (sesion.role === 'personal') {
+        destino = RUTAS_PERSONAL.includes(from) ? from : '/mi-agenda'
+      } else if (RUTAS_CLIENTE.includes(from)) {
+        destino = from
+      }
+      // Éxito: NO se resetea isSubmitting. navigate() agenda la transición
+      // de ruta y este componente se desmonta al confirmarse; un
+      // setIsSubmitting(false) urgente acá provocaría un render en /login
+      // donde el <Navigate to="/" /> de más arriba competiría con esa
+      // transición pendiente y la ganaría (el usuario caería en la home
+      // en lugar de su destino por rol).
+      navigate(destino, { replace: true })
     } catch (err) {
       if (err.status === 0) {
         setError(err.message)
@@ -40,7 +59,8 @@ function Login() {
       } else {
         setError(err.message || 'No se pudo iniciar sesión. Intentá nuevamente.')
       }
-    } finally {
+      // Solo en error: sin navegación pendiente, hay que reactivar el
+      // formulario para corregir las credenciales.
       setIsSubmitting(false)
     }
   }

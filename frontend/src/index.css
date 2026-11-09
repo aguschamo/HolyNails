@@ -327,7 +327,8 @@ textarea:focus-visible,
 /* Botones — radio moderado, padding contenido, estados unificados */
 .btn-hn-dark,
 .btn-hn-outline,
-.btn-hn-whatsapp {
+.btn-hn-whatsapp,
+.btn-hn-marfil {
   border-radius: 0.6rem;
   font-weight: 700;
   font-size: 0.9rem;
@@ -364,6 +365,21 @@ textarea:focus-visible,
   border-color: var(--hn-ciruela);
 }
 
+.btn-hn-marfil {
+  background-color: var(--hn-marfil);
+  color: var(--hn-oscuro);
+  border: none;
+  box-shadow: 0 4px 14px var(--hn-sombra-suave);
+}
+
+.btn-hn-marfil:hover,
+.btn-hn-marfil:focus-visible {
+  background-color: var(--hn-oscuro);
+  color: var(--hn-marfil);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px var(--hn-sombra-media);
+}
+
 .btn-hn-whatsapp {
   background-color: #25d366;
   color: #ffffff;
@@ -395,6 +411,13 @@ textarea:focus-visible,
   transform: none;
 }
 
+.btn-hn-marfil:active {
+  background-color: var(--hn-oscuro);
+  color: var(--hn-marfil);
+  transform: none;
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.25);
+}
+
 .btn-hn-whatsapp:active {
   background-color: #1eb857;
   color: #ffffff;
@@ -422,9 +445,9 @@ textarea:focus-visible,
 }
 
 /* Badges y acentos */
-.hn-badge-pink {
-  background-color: var(--hn-malva);
-  color: var(--hn-oscuro);
+.hn-badge-pink,
+.hn-badge-success,
+.hn-badge-danger {
   font-weight: 700;
   font-size: 0.78rem;
   letter-spacing: 1px;
@@ -432,6 +455,24 @@ textarea:focus-visible,
   padding: 0.45rem 1.2rem;
   border-radius: 50px;
   display: inline-block;
+}
+
+/* Pendiente */
+.hn-badge-pink {
+  background-color: var(--hn-malva);
+  color: var(--hn-oscuro);
+}
+
+/* Confirmado */
+.hn-badge-success {
+  background-color: var(--hn-ciruela);
+  color: var(--hn-marfil);
+}
+
+/* Cancelado */
+.hn-badge-danger {
+  background-color: var(--hn-oscuro);
+  color: var(--hn-malva);
 }
 
 /* Avatar de usuario */
@@ -802,6 +843,14 @@ textarea:focus-visible,
 .hn-contacto-value {
   color: var(--hn-oscuro);
   font-size: 0.95rem;
+}
+
+/* Enlaces dentro de los datos de contacto: heredan el color del bloque
+   (sólo se agrega subrayado para indicar que son clickeables) */
+.hn-contacto-value a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 @media (max-width: 767.98px) {

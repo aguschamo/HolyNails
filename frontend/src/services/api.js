@@ -141,8 +141,15 @@ export async function apiRequest(
 
   const fetchOptions = { method, headers: buildHeaders(token, headers) }
   if (body !== undefined) {
-    fetchOptions.headers['Content-Type'] = 'application/json'
-    fetchOptions.body = JSON.stringify(body)
+    if (body instanceof FormData) {
+      // B11.2: subida multipart (foto de perfil). El navegador fija el
+      // Content-Type con su boundary; forzar application/json rompería
+      // la lectura del archivo en el backend.
+      fetchOptions.body = body
+    } else {
+      fetchOptions.headers['Content-Type'] = 'application/json'
+      fetchOptions.body = JSON.stringify(body)
+    }
   }
 
   let res
