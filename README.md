@@ -61,7 +61,7 @@ En la siguiente tabla se detalla el estado actual de cada componente del sistema
 | ✅ | **API REST (Django + DRF)** | Arquitectura backend estructurada con endpoints RESTful para autenticación, usuarios, servicios y turnos. |
 | ✅ | **Autenticación JWT** | Autenticación segura mediante JSON Web Tokens (`SimpleJWT`) con renovación automática de tokens. |
 | ✅ | **Modelo de Datos y Validaciones** | Restricción de turnos duplicados en misma fecha/hora, horario de atención (09:00 a 20:00 hs) y validación de fechas pasadas. |
-| ✅ | **Control de Permisos por Roles** | Permisos personalizados en API (`IsAuthenticated`, `IsAdminOrVendedor`, `IsOwnerOrAdmin`) según el rol del usuario. |
+| ✅ | **Control de Permisos por Roles** | Permisos personalizados en API (`IsAuthenticated`, `IsAdmin`, `IsOwnerOrAdmin`, `EsProfesionalOAdmin`) según el rol del usuario. |
 | ✅ | **Documentación OpenAPI 3 / Swagger** | Documentación interactiva de la API accesible públicamente mediante Swagger UI (`drf-spectacular`). |
 | ✅ | **Interfaz de Usuario Frontend (React)** | Vistas principales desarrolladas y maquetadas con Bootstrap: Home, Galería, Agendar, Mis Turnos, Perfil y Panel Admin. |
 | ✅ | **Protección de Rutas en Frontend** | Enrutamiento protegido por autenticación y roles mediante componentes `ProtectedRoute` y `RoleRoute`. |
@@ -91,7 +91,7 @@ En la siguiente tabla se detalla el estado actual de cada componente del sistema
 
 ### 💅 Gestión de Servicios (Catálogo)
 - [x] Consulta pública de servicios activos (nombre, duración, precio).
-- [x] Gestión administrativa (alta, baja lógica y modificación) reservada a roles con permisos de administración o ventas.
+- [x] Gestión administrativa (alta, baja lógica y modificación) reservada exclusivamente al rol `ADMIN`.
 
 ### 📅 Gestión de Turnos
 - [x] Reserva de turnos asociada a un servicio válido y fecha/hora elegida.
@@ -111,8 +111,8 @@ El sistema contempla la siguiente distinción de roles tanto en backend como en 
 | Rol | Ámbito | Descripción y Permisos |
 | --- | --- | --- |
 | **`CLIENTE`** | App / Frontend / API | Rol por defecto asignado al registrarse. Puede explorar servicios activos, crear reservas de turnos y ver/gestionar únicamente sus propios turnos. |
-| **`ADMIN`** | App / Frontend / API | Administrador de la aplicación. Puede gestionar el catálogo de servicios completo, visualizar todos los turnos del salón, cambiar estados de reservas y acceder al panel `/admin` en el frontend. |
-| **`VENDEDOR`** | API Backend | Rol intermedio habilitado en el backend (`IsAdminOrVendedor`) para gestionar y actualizar el catálogo de servicios ofrecidos. |
+| **`ADMIN`** | App / Frontend / API | Administrador de la aplicación. Es el único que puede gestionar el catálogo de servicios completo, crear cuentas de `PERSONAL` (alta administrativa con Profesional vinculado), visualizar todos los turnos del salón, cambiar estados de reservas y acceder al panel `/admin` en el frontend. |
+| **`PERSONAL`** | App / Frontend / API | Cuenta de trabajadora/or creada por `ADMIN` junto con su registro `Profesional` vinculado (invariante: todo `PERSONAL` tiene Profesional). Gestiona sus propias disponibilidades y consulta su agenda laboral desde `/mi-agenda` (`?como_profesional=true`); no gestiona servicios ni participa del flujo de reservas. |
 | **`Django Staff`** | Panel Admin Django | Superusuario o staff de Django con acceso al panel nativo de administración (`/admin/`) y permisos administrativos automáticos en la API REST. |
 
 ---
@@ -144,7 +144,7 @@ El sistema contempla la siguiente distinción de roles tanto en backend como en 
 - `username`: Nombre de usuario único.
 - `email`: Correo electrónico único.
 - `nombre`: Nombre y apellido del usuario.
-- `role`: Rol del sistema (`CLIENTE`, `ADMIN`, `VENDEDOR`).
+- `role`: Rol del sistema (`ADMIN`, `CLIENTE`, `PERSONAL`).
 
 #### 💅 Servicio (`core.Servicio`)
 - `id`: Identificador del servicio (PK).
@@ -307,6 +307,42 @@ Desde el directorio `frontend/`:
 npm run dev
 ```
 - **Aplicación Web**: `http://localhost:3000/`
+
+---
+
+## 🧪 Tests
+
+### Backend (Django)
+
+Crear y activar el entorno virtual e instalar las dependencias desde la raíz del proyecto:
+
+```bash
+# Windows (PowerShell)
+py -m venv venv
+.\venv\Scripts\Activate.ps1
+
+# macOS / Linux
+python3 -m venv venv
+source venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+Ejecutar la suite completa (usa `config/test_settings.py`, con SQLite en memoria; no requiere PostgreSQL):
+
+```bash
+python manage.py test core users --settings=config.test_settings
+```
+
+### Frontend (React)
+
+Desde el directorio `frontend/`, después de instalar las dependencias con `npm install`:
+
+```bash
+npm test          # tests en Node (node --test "tests/*.test.mjs")
+npm run test:ui   # tests de componentes con Vitest (vitest run)
+npm run lint      # linter (eslint .)
+```
 
 ---
 
