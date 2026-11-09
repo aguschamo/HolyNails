@@ -112,6 +112,13 @@ function Navbar() {
           </Link>
         </li>
       )}
+      {usuario && usuario.es_profesional && (
+        <li className="nav-item">
+          <Link className="nav-link hn-nav-link" to="/mi-agenda" onClick={cerrarMenu}>
+            Mi agenda
+          </Link>
+        </li>
+      )}
     </ul>
   )
 
@@ -128,15 +135,7 @@ function Navbar() {
           />
         </Link>
 
-        {/* Agendar turno: siempre visible en la barra superior */}
-        <Link
-          to={usuario ? '/agendar' : '/login'}
-          className="btn btn-hn-dark"
-          onClick={cerrarMenu}
-        >
-          Agendar turno
-        </Link>
-
+        {/* Toggler siempre después del brand; el CTA vive a la derecha, dentro del colapsable */}
         <button
           className="navbar-toggler border-0"
           type="button"
@@ -151,77 +150,95 @@ function Navbar() {
         <div className={`collapse navbar-collapse${menuAbierto ? ' show' : ''}`} id="hnNavbarMenu">
           {enlaces}
 
-          {/* Acceso a cuenta / autenticación dentro del menú colapsable */}
-          {usuario ? (
-            <div className="hn-account mt-2" ref={cuentaRef}>
-              <button
-                type="button"
-                ref={cuentaTriggerRef}
-                className="hn-account-trigger"
-                aria-haspopup="true"
-                aria-expanded={cuentaAbierta}
-                aria-controls="hnAccountMenu"
-                aria-label={`Menú de cuenta de ${usuario.nombre}`}
-                onClick={() => setCuentaAbierta((prev) => !prev)}
+          {/* Acciones a la derecha: CTA de agendar + accesos de cuenta o autenticación */}
+          <div className="d-flex flex-wrap align-items-center justify-content-center gap-2 mt-2 mt-lg-0">
+            {/* El flujo de reservas es de CLIENTE y ADMIN (o anónimo
+                para entrar): PERSONAL no ve el CTA de agendar (D4). */}
+            {(!usuario || role === 'cliente' || role === 'admin') && (
+              <Link
+                to={usuario ? '/agendar' : '/login'}
+                className="btn btn-hn-dark"
+                onClick={cerrarMenu}
               >
-                <span aria-hidden="true">
-                  <Avatar nombre={usuario.nombre} photo={usuario.photo} size="sm" />
-                </span>
-                <span className="hn-account-name">{usuario.nombre}</span>
-                <svg
-                  className="hn-account-chevron"
-                  aria-hidden="true"
-                  focusable="false"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2.5 4.5 6 8l3.5-3.5" />
-                </svg>
-              </button>
+                Agendar turno
+              </Link>
+            )}
 
-              {cuentaAbierta && (
-                <div className="hn-account-menu" id="hnAccountMenu">
-                  <Link
-                    to="/perfil"
-                    className="hn-account-item"
-                    onClick={() => setCuentaAbierta(false)}
+            {usuario ? (
+              <div className="hn-account" ref={cuentaRef}>
+                <button
+                  type="button"
+                  ref={cuentaTriggerRef}
+                  className="hn-account-trigger"
+                  aria-haspopup="true"
+                  aria-expanded={cuentaAbierta}
+                  aria-controls="hnAccountMenu"
+                  aria-label={`Menú de cuenta de ${usuario.nombre}`}
+                  onClick={() => setCuentaAbierta((prev) => !prev)}
+                >
+                  <span aria-hidden="true">
+                    <Avatar nombre={usuario.nombre} photo={usuario.photo} size="sm" />
+                  </span>
+                  <span className="hn-account-name">{usuario.nombre}</span>
+                  <svg
+                    className="hn-account-chevron"
+                    aria-hidden="true"
+                    focusable="false"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    Mi perfil
-                  </Link>
-                  <Link
-                    to="/mis-turnos"
-                    className="hn-account-item"
-                    onClick={() => setCuentaAbierta(false)}
-                  >
-                    Mis turnos
-                  </Link>
-                  <hr className="hn-account-sep" />
-                  <button
-                    type="button"
-                    className="hn-account-item hn-account-logout"
-                    onClick={handleLogout}
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              <Link to="/login" className="hn-nav-link" onClick={cerrarMenu}>
-                Iniciar sesión
-              </Link>
-              <Link to="/register" className="hn-nav-link" onClick={cerrarMenu}>
-                Registrarme
-              </Link>
-            </>
-          )}
+                    <path d="M2.5 4.5 6 8l3.5-3.5" />
+                  </svg>
+                </button>
+
+                {cuentaAbierta && (
+                  <div className="hn-account-menu" id="hnAccountMenu">
+                    <Link
+                      to="/perfil"
+                      className="hn-account-item"
+                      onClick={() => setCuentaAbierta(false)}
+                    >
+                      Mi perfil
+                    </Link>
+                    {/* «Mis turnos» es del flujo de CLIENTE y ADMIN:
+                        PERSONAL no ve reservas como cliente (D4). */}
+                    {(role === 'cliente' || role === 'admin') && (
+                      <Link
+                        to="/mis-turnos"
+                        className="hn-account-item"
+                        onClick={() => setCuentaAbierta(false)}
+                      >
+                        Mis turnos
+                      </Link>
+                    )}
+                    <hr className="hn-account-sep" />
+                    <button
+                      type="button"
+                      className="hn-account-item hn-account-logout"
+                      onClick={handleLogout}
+                    >
+                      Cerrar sesión
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link to="/register" className="btn btn-hn-outline" onClick={cerrarMenu}>
+                  Registrarme
+                </Link>
+                <Link to="/login" className="btn btn-hn-marfil" onClick={cerrarMenu}>
+                  Iniciar sesión
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </nav>

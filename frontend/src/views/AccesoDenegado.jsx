@@ -5,7 +5,21 @@ import { useAuth } from '../context/AuthContext.jsx'
 function AccesoDenegado() {
   const { usuario, role } = useAuth()
 
-  const destino = role === 'admin' ? '/admin' : '/perfil'
+  // Destino estable por rol:
+  // - admin → /admin;
+  // - personal CON Profesional activo → /mi-agenda;
+  // - personal SIN Profesional activo (es_profesional false) → /perfil:
+  //   /mi-agenda lo rechazaría (ProfesionalRoute → /denegado) y el botón
+  //   causaría un bucle de redirecciones;
+  // - resto (cliente, anónimo tratado aparte) → /perfil.
+  // Un Profesional inactivo no es un usuario anónimo: conserva su sesión
+  // y su mensaje, solo cambia el destino del botón.
+  const destino =
+    role === 'admin'
+      ? '/admin'
+      : role === 'personal' && usuario?.es_profesional
+        ? '/mi-agenda'
+        : '/perfil'
 
   return (
     <section className="hn-auth-bg py-5">

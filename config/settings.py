@@ -139,6 +139,12 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# B11.2: almacenamiento de fotos de perfil (sólo local, sin servicios
+# externos). MEDIA_ROOT es donde se guardan los archivos subidos y
+# MEDIA_URL la base pública para referenciarlos.
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
 ]

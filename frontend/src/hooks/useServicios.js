@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 
-import { api } from '../services/api.js'
+import { fetchTodosLosRecursos } from '../services/paginacion.js'
 
 // Fuente única del catálogo de servicios para Home y Agendar.
-// GET /api/servicios/ devuelve una página paginada; sólo se lee `results`
-// (PAGE_SIZE=10 en el backend). Si la API falla, `error` queda con el
-// mensaje ya listo para mostrar y `servicios` en [].
+// GET /api/servicios/ viene paginado (PAGE_SIZE=10 en el backend):
+// fetchTodosLosRecursos recorre todas las páginas para que el catálogo
+// no se corte en los primeros elementos. Si la API falla, `error` queda
+// con el mensaje ya listo para mostrar y `servicios` en [].
 export function useServicios() {
   const [servicios, setServicios] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,9 +19,9 @@ export function useServicios() {
       setLoading(true)
       setError(null)
       try {
-        const data = await api.get('/api/servicios/')
+        const lista = await fetchTodosLosRecursos('/api/servicios/')
         if (!cancelled) {
-          setServicios(Array.isArray(data.results) ? data.results : [])
+          setServicios(lista)
         }
       } catch (err) {
         if (!cancelled) {
