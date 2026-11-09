@@ -165,7 +165,7 @@ function Home() {
 
           <div className="text-center mt-4">
             <a
-              href="https://instagram.com/holy.nails.demo"
+              href="https://www.instagram.com/holy.nails31/"
               target="_blank"
               rel="noopener noreferrer"
               className="fw-semibold"
@@ -187,7 +187,7 @@ function Home() {
                   Escribinos por WhatsApp y te ayudamos con tu pedido o dudas.
                 </p>
                 <a
-                  href="https://wa.me/5492600000000"
+                  href="https://wa.me/5492604846713"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-hn-dark d-inline-flex align-items-center gap-2"
@@ -209,17 +209,27 @@ function Home() {
               <div className="col-12 col-md-7">
                 <div className="hn-contacto-grid">
                   <div className="hn-contacto-item">
-                    <p className="hn-contacto-label mb-1">WhatsApp</p>
-                    <p className="hn-contacto-value mb-0">+54 9 260 000 0000</p>
+                    <p className="hn-contacto-label mb-1">Teléfono</p>
+                    <p className="hn-contacto-value mb-0">
+                      <a href="tel:+5492604846713">2604 846713</a>
+                    </p>
                   </div>
                   <div className="hn-contacto-item">
                     <p className="hn-contacto-label mb-1">Instagram</p>
-                    <p className="hn-contacto-value mb-0">@holy.nails.demo</p>
+                    <p className="hn-contacto-value mb-0">
+                      <a
+                        href="https://www.instagram.com/holy.nails31/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        @holy.nails31
+                      </a>
+                    </p>
                   </div>
                   <div className="hn-contacto-item">
                     <p className="hn-contacto-label mb-1">Ubicación</p>
                     <p className="hn-contacto-value mb-0">
-                      Av. Ejemplo 123, San Rafael, Mendoza
+                      Av. San Martín 404, San Rafael, Mendoza
                     </p>
                   </div>
                   <div className="hn-contacto-item">
