@@ -24,12 +24,14 @@ import shutil
 import tempfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.storage import FileSystemStorage
 from django.test import override_settings
 from django.urls import reverse
 
 from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
+from unittest.mock import patch
 
 from users.models import User
 
@@ -233,6 +235,57 @@ class ReemplazoYBorradoTests(BaseFotoPerfilTests):
     def test_eliminar_sin_foto_devuelve_400(self):
         resp = self.eliminar(self.cliente)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_fallo_al_guardar_referencia_conserva_foto_anterior_y_limpia_nueva(self):
+        self.subir(self.cliente, subida('original.jpg'))
+        self.cliente.refresh_from_db()
+        anterior = self.cliente.foto.name
+        ruta_anterior = self.ruta_en_disco(self.cliente)
+        self.client.raise_request_exception = False
+
+        with patch.object(User, 'save', side_effect=RuntimeError('db error')):
+            resp = self.subir(self.cliente, subida('nueva.png', formato='PNG'))
+
+        self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.foto.name, anterior)
+        self.assertTrue(os.path.exists(ruta_anterior))
+        self.assertEqual(os.listdir(os.path.join(self.media_root, 'perfiles')),
+                         [os.path.basename(anterior)])
+
+    def test_fallo_de_subida_durante_storage_conserva_foto_anterior(self):
+        self.subir(self.cliente, subida('original.jpg'))
+        self.cliente.refresh_from_db()
+        anterior = self.cliente.foto.name
+        ruta_anterior = self.ruta_en_disco(self.cliente)
+        self.client.raise_request_exception = False
+
+        with patch.object(
+            FileSystemStorage, '_save', side_effect=OSError('storage unavailable')
+        ):
+            resp = self.subir(self.cliente, subida('nueva.jpg'))
+
+        self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.foto.name, anterior)
+        self.assertTrue(os.path.exists(ruta_anterior))
+
+    def test_fallo_al_borrar_asset_remoto_limpia_referencia_y_responde_exito(self):
+        self.subir(self.cliente, subida('original.jpg'))
+        self.cliente.refresh_from_db()
+        ruta_anterior = self.ruta_en_disco(self.cliente)
+
+        with patch.object(
+            FileSystemStorage, 'delete', side_effect=OSError('storage unavailable')
+        ):
+            resp = self.eliminar(self.cliente)
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.data)
+        self.cliente.refresh_from_db()
+        self.assertFalse(self.cliente.foto)
+        # El borrado remoto fallido deja un huérfano recuperable, no una
+        # referencia inválida guardada en el perfil.
+        self.assertTrue(os.path.exists(ruta_anterior))
 
 
 class ValidacionTests(BaseFotoPerfilTests):

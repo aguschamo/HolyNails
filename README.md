@@ -345,8 +345,13 @@ npm run dev
      el formulario del admin. Configurar solo el origen HTTPS exacto del
      backend, sin comodines; esto no desactiva la validación del token CSRF.
    - `CORS_ALLOWED_ORIGINS`: origen HTTPS de Vercel, sin barra final.
-   - `PROFILE_PHOTO_UPLOAD_ENABLED=false` hasta integrar almacenamiento
-     persistente. El backend responde HTTP 503 si se intenta subir una foto.
+   - `CLOUDINARY_URL` o las variables `CLOUDINARY_CLOUD_NAME`,
+     `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET`, definidas como variables
+     protegidas del servicio. Django selecciona Cloudinary por defecto cuando
+     `DEBUG=false` y valida que las credenciales estén completas al iniciar.
+   - `PROFILE_PHOTO_UPLOAD_ENABLED=false` hasta verificar la integración.
+     El storage queda listo, pero el endpoint de subida responde HTTP 503
+     mientras esa bandera siga desactivada.
    - `SECURE_HSTS_SECONDS=0`, `SECURE_HSTS_INCLUDE_SUBDOMAINS=false` y `SECURE_HSTS_PRELOAD=false` para mantener HSTS desactivado inicialmente. Las cookies de sesión y CSRF se marcan Secure automáticamente cuando `DEBUG=false`.
    Railway proporciona `PORT`. El health check puede usar `/api/health/`; es una comprobación de proceso y no valida conectividad con PostgreSQL.
 6. Después de la primera migración, crear el administrador desde el entorno del servicio Django con `python manage.py createsuperuser`.
@@ -361,9 +366,19 @@ Crear el proyecto con **Root Directory** `frontend/`, **Build Command** `npm run
 
 ### Pendientes antes de producción
 
-- Las fotos se almacenan actualmente en el filesystem local; `PROFILE_PHOTO_UPLOAD_ENABLED=false` en Railway y `VITE_PROFILE_PHOTO_UPLOAD_ENABLED=false` en Vercel mantienen deshabilitadas las subidas hasta integrar Cloudinary o almacenamiento persistente. La eliminación de fotos propias existentes sigue disponible.
+- Cloudinary almacena los archivos de medios cuando `DEBUG=false`; los estáticos continúan en WhiteNoise. En desarrollo y tests se conserva el filesystem local. `CLOUDINARY_STORAGE_ENABLED=true` permite seleccionar Cloudinary explícitamente en local para una prueba de integración; en Railway Cloudinary queda seleccionado por defecto y la app no inicia si faltan las credenciales.
+- Mantener `PROFILE_PHOTO_UPLOAD_ENABLED=false` en Railway hasta verificar manualmente Cloudinary; esto no activa ni desactiva el storage y sólo controla las subidas del endpoint. Las eliminaciones limpian primero la referencia del perfil y después intentan borrar el asset remoto; un fallo remoto queda registrado y puede dejar un asset huérfano.
+- Antes de cambiar el storage, confirmar si hay fotos previas en la base de producción. Los nombres guardados en `User.foto` no migran automáticamente de filesystem a Cloudinary; esas imágenes deberán copiarse al destino remoto conservando sus nombres o limpiarse/volver a subir.
+- En Vercel, mantener `VITE_PROFILE_PHOTO_UPLOAD_ENABLED=false` hasta que el backend esté verificado y se habilite manualmente `PROFILE_PHOTO_UPLOAD_ENABLED` en Railway. El frontend consume `foto_url` sin cambiar el contrato de API.
 - El frontend debe apuntar al dominio de API correcto y el origen de Vercel debe estar permitido por CORS; actualizar CORS si se utiliza un dominio personalizado o previews.
 - Verificar endpoints públicos y protegidos, login/refresh JWT, panel de administración, subidas de fotos una vez configuradas, y capturar evidencias del health check y de flujos principales para el TP.
+
+#### Verificación de Cloudinary
+
+1. En local, activar `CLOUDINARY_STORAGE_ENABLED=true` y configurar en el entorno local `CLOUDINARY_URL` o las tres variables separadas documentadas en `.env.example`. No agregarlas a Git.
+2. Ejecutar `python manage.py test users.test_cloudinary_storage users.test_foto_perfil --settings=config.test_settings` para validar el adaptador simulado y el flujo local. Las pruebas unitarias no hacen llamadas reales.
+3. Para una prueba real local, usar una cuenta/carpeta de prueba y comprobar una subida, URL HTTPS, reemplazo y eliminación desde el perfil y el panel de Cloudinary.
+4. En Railway, definir las credenciales como variables protegidas, desplegar con `PROFILE_PHOTO_UPLOAD_ENABLED=false` y confirmar arranque y archivos estáticos. Luego habilitar manualmente las subidas y probar POST, reemplazo y DELETE desde Vercel con una cuenta de prueba.
 
 ---
 

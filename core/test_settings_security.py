@@ -22,6 +22,7 @@ class DebugEnvironmentTests(SimpleTestCase):
         env.pop('DEBUG', None)
         env.pop('PROFILE_PHOTO_UPLOAD_ENABLED', None)
         env['SECRET_KEY'] = 'test-only-secret-key-for-settings'
+        env['CLOUDINARY_STORAGE_ENABLED'] = 'false'
         if debug_value is not None:
             env['DEBUG'] = debug_value
 
@@ -70,6 +71,7 @@ class DebugEnvironmentTests(SimpleTestCase):
         env = os.environ.copy()
         env.pop('CSRF_TRUSTED_ORIGINS', None)
         env['SECRET_KEY'] = 'test-only-secret-key-for-settings'
+        env['CLOUDINARY_STORAGE_ENABLED'] = 'false'
         env['CSRF_TRUSTED_ORIGINS'] = 'https://admin.example.test'
         code = (
             'import dotenv\n'
@@ -96,6 +98,7 @@ class DebugEnvironmentTests(SimpleTestCase):
         env = os.environ.copy()
         env.pop('CSRF_TRUSTED_ORIGINS', None)
         env['SECRET_KEY'] = 'test-only-secret-key-for-settings'
+        env['CLOUDINARY_STORAGE_ENABLED'] = 'false'
         env['CSRF_TRUSTED_ORIGINS'] = 'https://*.example.test'
         code = (
             'import dotenv\n'
