@@ -1,10 +1,12 @@
-"""Settings para la suite de tests.
+"""Settings aislados para tests, sin PostgreSQL ni variables externas.
 
-Sólo cambia la base de datos: SQLite en memoria para poder correr
-`python manage.py test core users --settings=config.test_settings`
-desde un clon limpio, sin PostgreSQL y sin variables de entorno.
-La configuración de desarrollo (`config.settings`) no se modifica.
+Usa SQLite en memoria y una SECRET_KEY fija exclusiva de tests antes de
+importar la configuración general.
 """
+
+import os
+
+os.environ['SECRET_KEY'] = 'test-only-secret-key-not-for-production'
 
 from config.settings import *  # noqa: F401,F403
 

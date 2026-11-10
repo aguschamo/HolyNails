@@ -1,8 +1,9 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
+from rest_framework.permissions import AllowAny, IsAuthenticated, SAFE_METHODS
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, ValidationError as DRFValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -68,6 +69,22 @@ def _es_conflicto_unico(exc):
         return True
     mensaje = str(exc).lower()
     return 'unique' in mensaje or 'duplicate key' in mensaje
+
+
+class HealthView(APIView):
+    """Health check público (Etapa 1B del TP10).
+
+    GET /api/health/ devuelve un JSON fijo. No consulta la base de datos
+    ni ningún otro recurso, y no exige autenticación: la lista de
+    autenticadores está vacía para que una cabecera Authorization
+    inválida tampoco pueda alterar la respuesta.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({'status': 'ok', 'service': 'api'})
 
 
 class ServicioViewSet(viewsets.ModelViewSet):
