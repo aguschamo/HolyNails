@@ -1,7 +1,12 @@
+import logging
+
 from django.conf import settings
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.exceptions import (
+    APIException,
+    ValidationError as DRFValidationError,
+)
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -25,6 +30,9 @@ from .serializers import (
     RegisterSerializer,
     UserSerializer,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -92,17 +100,26 @@ class ProfileFotoView(APIView):
             # ruta_foto_perfil; save=False evita escribir la fila todavía.
             usuario.foto.save(archivo.name, archivo, save=False)
             usuario.save(update_fields=['foto'])
-        except Exception:
+        except Exception as save_error:
+            logger.error(
+                'No se pudo persistir la foto nueva (%s).',
+                type(save_error).__name__,
+            )
             # Reversión: si el archivo nuevo llegó a escribirse, se borra y
             # el usuario conserva su foto anterior (no se pierde nada).
             nuevo_nombre = usuario.foto.name
             if nuevo_nombre and nuevo_nombre != nombre_anterior:
                 try:
                     usuario.foto.storage.delete(nuevo_nombre)
-                except OSError:
-                    pass
+                except Exception as cleanup_error:
+                    logger.error(
+                        'No se pudo limpiar el asset de foto nuevo (%s).',
+                        type(cleanup_error).__name__,
+                    )
                 usuario.foto.name = nombre_anterior
-            raise
+            # Avoid returning an SDK exception message that could contain
+            # provider response details. The operation type is logged above.
+            raise APIException('No se pudo guardar la foto de perfil.') from None
 
         # Éxito: recién ahora se elimina el archivo reemplazado. Sólo se
         # borra bajo perfiles/ (los archivos propios por construcción).
@@ -110,8 +127,11 @@ class ProfileFotoView(APIView):
             if nombre_anterior.startswith('perfiles/'):
                 try:
                     usuario.foto.storage.delete(nombre_anterior)
-                except OSError:
-                    pass
+                except Exception as delete_error:
+                    logger.error(
+                        'No se pudo borrar el asset anterior de foto (%s).',
+                        type(delete_error).__name__,
+                    )
 
         return Response(
             UserSerializer(usuario, context={'request': request}).data,
@@ -135,8 +155,11 @@ class ProfileFotoView(APIView):
         if nombre.startswith('perfiles/'):
             try:
                 storage.delete(nombre)
-            except OSError:
-                pass
+            except Exception as delete_error:
+                logger.error(
+                    'No se pudo borrar el asset de foto (%s).',
+                    type(delete_error).__name__,
+                )
 
         return Response(
             UserSerializer(usuario, context={'request': request}).data,

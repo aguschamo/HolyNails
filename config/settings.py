@@ -11,6 +11,7 @@ from pathlib import Path
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
+from config.storage import cloudinary_credentials_configured
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -232,25 +233,34 @@ STATIC_URL = 'static/'
 # WhiteNoise los sirve desde ahí en producción.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# API STORAGES de Django 6 (reemplaza a STATICFILES_STORAGE): los
-# estáticos los sirve WhiteNoise; los archivos subidos (default)
-# siguen en disco local. Se usa la variante comprimida sin manifest
-# para no exigir collectstatic previo en desarrollo.
+# CLOUDINARY_STORAGE_ENABLED permite usar Cloudinary explícitamente en
+# desarrollo para pruebas de integración. En producción se selecciona por
+# defecto; las credenciales se validan antes de construir el storage.
+CLOUDINARY_STORAGE_ENABLED = _env_bool(
+    'CLOUDINARY_STORAGE_ENABLED', not DEBUG
+)
+if CLOUDINARY_STORAGE_ENABLED and not cloudinary_credentials_configured():
+    raise ImproperlyConfigured(
+        'Cloudinary storage está seleccionado, pero faltan credenciales '
+        'completas en las variables de entorno.'
+    )
+
+# API STORAGES de Django 6: medios remotos sólo cuando se seleccionan; los
+# estáticos siguen en WhiteNoise en todos los entornos.
 STORAGES = {
     'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        'BACKEND': (
+            'config.storage.CloudinaryMediaStorage'
+            if CLOUDINARY_STORAGE_ENABLED
+            else 'django.core.files.storage.FileSystemStorage'
+        ),
     },
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
 }
 
-# B11.2: almacenamiento de fotos de perfil (sólo local, sin servicios
-# externos). MEDIA_ROOT es donde se guardan los archivos subidos y
-# MEDIA_URL la base pública para referenciarlos.
-# NOTA: el disco local NO es apto para producción (Railway borra el
-# filesystem en cada deploy); migrar a Cloudinary queda pendiente para
-# una etapa posterior.
+# MEDIA_ROOT y MEDIA_URL se conservan para el storage local de desarrollo.
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 PROFILE_PHOTO_UPLOAD_ENABLED = _env_bool(

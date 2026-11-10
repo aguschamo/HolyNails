@@ -65,6 +65,7 @@ class RailwayAllowedHostsEnvironmentTests(SimpleTestCase):
         env.update({
             'DJANGO_SETTINGS_MODULE': 'config.settings',
             'DEBUG': 'false',
+            'CLOUDINARY_STORAGE_ENABLED': 'false',
             'ALLOWED_HOSTS': 'api.example.test,healthcheck.railway.app',
             'SECRET_KEY': 'test-only-secret-key-for-settings',
         })
