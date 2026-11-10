@@ -85,6 +85,18 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# Orígenes CSRF exactos permitidos para formularios como el login del admin.
+# Los orígenes deben configurarse explícitamente; no se admiten comodines.
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
+if any('*' in origin for origin in CSRF_TRUSTED_ORIGINS):
+    raise ImproperlyConfigured(
+        'CSRF_TRUSTED_ORIGINS no admite comodines; definí orígenes exactos.'
+    )
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',

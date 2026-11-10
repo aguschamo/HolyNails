@@ -341,6 +341,9 @@ npm run dev
    - `ALLOWED_HOSTS`: dominio público de la API y `healthcheck.railway.app`,
      separados por coma y sin protocolo ni comodines; por ejemplo
      `tu-api.up.railway.app,healthcheck.railway.app`.
+   - `CSRF_TRUSTED_ORIGINS=https://holynails-production.up.railway.app` para
+     el formulario del admin. Configurar solo el origen HTTPS exacto del
+     backend, sin comodines; esto no desactiva la validación del token CSRF.
    - `CORS_ALLOWED_ORIGINS`: origen HTTPS de Vercel, sin barra final.
    - `PROFILE_PHOTO_UPLOAD_ENABLED=false` hasta integrar almacenamiento
      persistente. El backend responde HTTP 503 si se intenta subir una foto.
@@ -350,7 +353,7 @@ npm run dev
 
 Los comandos de build, start y pre-deploy se configuran en Railway, no en `railway.json`: la documentación vigente marca Config as Code como obsoleto y anuncia que los archivos existentes dejarán de funcionar el 1 de diciembre de 2026. No dejar el inicio Django automático, ya que el comando predeterminado de Railpack incluye `migrate`.
 
-No se configura `SECURE_PROXY_SSL_HEADER` ni `SECURE_SSL_REDIRECT` todavía. Railway documenta SSL automático en el borde, pero la documentación consultada no confirma que `X-Forwarded-Proto` se establezca y se controle antes de llegar a Gunicorn. Antes de habilitar `/admin/` en producción, verificar en Railway el esquema y el encabezado que recibe Django, que el proxy sustituya cualquier valor entrante y que el login con CSRF funcione por HTTPS. Las pruebas automatizadas ejercitan localmente el middleware CSRF de Django con encabezados simulados; no verifican ni demuestran el comportamiento del proxy de Railway. Mantener HSTS en cero hasta verificar HTTPS; no habilitar subdominios ni preload por defecto.
+No se configura `SECURE_PROXY_SSL_HEADER` ni `SECURE_SSL_REDIRECT` todavía. Railway documenta SSL automático en el borde, pero la documentación consultada no confirma que `X-Forwarded-Proto` se establezca y se controle antes de llegar a Gunicorn. `CSRF_TRUSTED_ORIGINS` permite el origen HTTPS exacto del admin, pero no hace que Django reconozca la conexión como HTTPS. Antes de confiar en `SECURE_PROXY_SSL_HEADER`, verificar en Railway el esquema y el encabezado que recibe Django, que el proxy sustituya cualquier valor entrante y que el login con CSRF funcione por HTTPS. Las pruebas automatizadas ejercitan localmente el middleware CSRF de Django con encabezados simulados; no verifican ni demuestran el comportamiento del proxy de Railway. Mantener HSTS en cero hasta verificar HTTPS; no habilitar subdominios ni preload por defecto.
 
 ### Frontend en Vercel
 
