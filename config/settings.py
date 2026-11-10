@@ -50,9 +50,9 @@ def _env_non_negative_int(name, default):
     return parsed_value
 
 
-# DEBUG se lee desde el entorno; sin definir, conserva el comportamiento
-# local actual (True) para no romper el desarrollo con el .env existente.
-DEBUG = _env_bool('DEBUG', True)
+# DEBUG se lee desde el entorno y queda desactivado por defecto para fallar
+# de forma segura si un entorno de producción omite la variable.
+DEBUG = _env_bool('DEBUG', False)
 
 # SECRET_KEY se lee desde el entorno o desde .env en desarrollo y siempre
 # es obligatoria. No arrancar con una clave insegura o compartida.
@@ -241,6 +241,9 @@ STORAGES = {
 # una etapa posterior.
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+PROFILE_PHOTO_UPLOAD_ENABLED = _env_bool(
+    'PROFILE_PHOTO_UPLOAD_ENABLED', DEBUG
+)
 
 # Orígenes permitidos para el frontend, en una lista separada por comas
 # desde el entorno. Sin comodines: en producción hay que listar cada

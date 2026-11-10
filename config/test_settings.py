@@ -7,6 +7,7 @@ importar la configuración general.
 import os
 
 os.environ['SECRET_KEY'] = 'test-only-secret-key-not-for-production'
+os.environ['DEBUG'] = 'true'
 
 from config.settings import *  # noqa: F401,F403
 

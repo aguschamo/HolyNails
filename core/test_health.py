@@ -4,6 +4,13 @@ GET /api/health/ debe responder 200 con un JSON fijo, sin exigir
 autenticación y sin tocar la base de datos (para que un monitoreo pueda
 consultarlo aunque la BD esté caída).
 """
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from django.test import SimpleTestCase
 from django.urls import reverse
 
 from rest_framework import status
@@ -44,3 +51,58 @@ class HealthEndpointTests(APITestCase):
         with self.assertNumQueries(0):
             res = self.client.get(self.url)
         self.assertEqual(res.status_code, status.HTTP_200_OK, res.content)
+
+
+class RailwayAllowedHostsEnvironmentTests(SimpleTestCase):
+    """Valida ALLOWED_HOSTS desde el entorno en un proceso Django aislado."""
+
+    def test_healthcheck_host_es_aceptado_desde_la_variable_de_entorno(self):
+        env = {
+            key: os.environ[key]
+            for key in ('PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP')
+            if key in os.environ
+        }
+        env.update({
+            'DJANGO_SETTINGS_MODULE': 'config.settings',
+            'DEBUG': 'false',
+            'ALLOWED_HOSTS': 'api.example.test,healthcheck.railway.app',
+            'SECRET_KEY': 'test-only-secret-key-for-settings',
+        })
+        code = (
+            'import dotenv\n'
+            'dotenv.load_dotenv = lambda *args, **kwargs: None\n'
+            'import django\n'
+            'django.setup()\n'
+            'from django.conf import settings\n'
+            'from django.test import Client\n'
+            'response = Client().get(\n'
+            '    "/api/health/", HTTP_HOST="healthcheck.railway.app"\n'
+            ')\n'
+            'import json\n'
+            'print(json.dumps({\n'
+            '    "debug": settings.DEBUG,\n'
+            '    "allowed_hosts": settings.ALLOWED_HOSTS,\n'
+            '    "status_code": response.status_code,\n'
+            '}))\n'
+        )
+        result = subprocess.run(
+            [sys.executable, '-c', code],
+            cwd=Path(__file__).resolve().parent.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, 'No se pudo cargar settings.')
+        self.assertEqual(
+            json.loads(result.stdout),
+            {
+                'debug': False,
+                'allowed_hosts': [
+                    'api.example.test',
+                    'healthcheck.railway.app',
+                ],
+                'status_code': status.HTTP_200_OK,
+            },
+        )

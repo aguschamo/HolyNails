@@ -254,12 +254,16 @@ cd turnero-proyecto-programacion1
    Copiar el resultado directamente al campo `SECRET_KEY` de `.env` (no compartirlo ni subirlo al repositorio). Luego editar `.env` e ingresar las credenciales de PostgreSQL de su entorno local:
    ```env
    SECRET_KEY=pegá_acá_la_clave_generada
+   DEBUG=true
    DB_NAME=programacion1_db
    DB_USER=postgres
    DB_PASSWORD=tu_contraseña_postgres
    DB_HOST=localhost
    DB_PORT=5432
    ```
+   `DEBUG` tiene valor predeterminado `false`; para desarrollo local por HTTP,
+   mantener `DEBUG=true` explícito en `.env`. Las subidas de fotos quedan
+   habilitadas por defecto cuando `DEBUG=true`.
 
 4. **Crear la base de datos en PostgreSQL**:
    Asegúrese de crear la base de datos `programacion1_db` en su servidor de PostgreSQL antes de continuar.
@@ -334,23 +338,27 @@ npm run dev
    - `DATABASE_URL`: referencia a la URL del servicio PostgreSQL.
    - `SECRET_KEY`: clave nueva, privada y distinta de cualquier clave local.
    - `DEBUG=false`.
-   - `ALLOWED_HOSTS`: dominio público de la API, sin `https://`.
+   - `ALLOWED_HOSTS`: dominio público de la API y `healthcheck.railway.app`,
+     separados por coma y sin protocolo ni comodines; por ejemplo
+     `tu-api.up.railway.app,healthcheck.railway.app`.
    - `CORS_ALLOWED_ORIGINS`: origen HTTPS de Vercel, sin barra final.
+   - `PROFILE_PHOTO_UPLOAD_ENABLED=false` hasta integrar almacenamiento
+     persistente. El backend responde HTTP 503 si se intenta subir una foto.
    - `SECURE_HSTS_SECONDS=0`, `SECURE_HSTS_INCLUDE_SUBDOMAINS=false` y `SECURE_HSTS_PRELOAD=false` para mantener HSTS desactivado inicialmente. Las cookies de sesión y CSRF se marcan Secure automáticamente cuando `DEBUG=false`.
    Railway proporciona `PORT`. El health check puede usar `/api/health/`; es una comprobación de proceso y no valida conectividad con PostgreSQL.
 6. Después de la primera migración, crear el administrador desde el entorno del servicio Django con `python manage.py createsuperuser`.
 
 Los comandos de build, start y pre-deploy se configuran en Railway, no en `railway.json`: la documentación vigente marca Config as Code como obsoleto y anuncia que los archivos existentes dejarán de funcionar el 1 de diciembre de 2026. No dejar el inicio Django automático, ya que el comando predeterminado de Railpack incluye `migrate`.
 
-No se configura `SECURE_PROXY_SSL_HEADER` ni `SECURE_SSL_REDIRECT` hasta confirmar el encabezado HTTPS enviado por el proxy de Railway. Mantener HSTS en cero hasta verificar el HTTPS del dominio; no habilitar subdominios ni preload por defecto.
+No se configura `SECURE_PROXY_SSL_HEADER` ni `SECURE_SSL_REDIRECT` todavía. Railway documenta SSL automático en el borde, pero la documentación consultada no confirma que `X-Forwarded-Proto` se establezca y se controle antes de llegar a Gunicorn. Antes de habilitar `/admin/` en producción, verificar en Railway el esquema y el encabezado que recibe Django, que el proxy sustituya cualquier valor entrante y que el login con CSRF funcione por HTTPS. Las pruebas automatizadas ejercitan localmente el middleware CSRF de Django con encabezados simulados; no verifican ni demuestran el comportamiento del proxy de Railway. Mantener HSTS en cero hasta verificar HTTPS; no habilitar subdominios ni preload por defecto.
 
 ### Frontend en Vercel
 
-Crear el proyecto con **Root Directory** `frontend/`, **Build Command** `npm run build` y **Output Directory** `dist`. Definir `VITE_API_URL` con la URL HTTPS pública de Railway en los entornos de producción y preview que se prueben. `frontend/vercel.json` reescribe las rutas de cliente a la aplicación para que React Router funcione al recargar o abrir una ruta directamente.
+Crear el proyecto con **Root Directory** `frontend/`, **Build Command** `npm run build` y **Output Directory** `dist`. Definir `VITE_API_URL` con la URL HTTPS pública de Railway en los entornos de producción y preview que se prueben. Mantener `VITE_PROFILE_PHOTO_UPLOAD_ENABLED=false` hasta configurar almacenamiento persistente; su valor predeterminado en builds de producción es deshabilitado. En Vite local, las subidas están disponibles por defecto y se pueden desactivar con `VITE_PROFILE_PHOTO_UPLOAD_ENABLED=false`. `frontend/vercel.json` reescribe las rutas de cliente a la aplicación para que React Router funcione al recargar o abrir una ruta directamente.
 
 ### Pendientes antes de producción
 
-- Las fotos se almacenan actualmente en el filesystem local; no usar subidas de imágenes en Railway hasta integrar Cloudinary o almacenamiento persistente.
+- Las fotos se almacenan actualmente en el filesystem local; `PROFILE_PHOTO_UPLOAD_ENABLED=false` en Railway y `VITE_PROFILE_PHOTO_UPLOAD_ENABLED=false` en Vercel mantienen deshabilitadas las subidas hasta integrar Cloudinary o almacenamiento persistente. La eliminación de fotos propias existentes sigue disponible.
 - El frontend debe apuntar al dominio de API correcto y el origen de Vercel debe estar permitido por CORS; actualizar CORS si se utiliza un dominio personalizado o previews.
 - Verificar endpoints públicos y protegidos, login/refresh JWT, panel de administración, subidas de fotos una vez configuradas, y capturar evidencias del health check y de flujos principales para el TP.
 
