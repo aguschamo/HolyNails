@@ -65,20 +65,18 @@ En la siguiente tabla se detalla el estado actual de cada componente del sistema
 | ✅ | **Documentación OpenAPI 3 / Swagger** | Documentación interactiva de la API accesible públicamente mediante Swagger UI (`drf-spectacular`). |
 | ✅ | **Interfaz de Usuario Frontend (React)** | Vistas principales desarrolladas y maquetadas con Bootstrap: Home, Galería, Agendar, Mis Turnos, Perfil y Panel Admin. |
 | ✅ | **Protección de Rutas en Frontend** | Enrutamiento protegido por autenticación y roles mediante componentes `ProtectedRoute` y `RoleRoute`. |
-| 🚧 | **Conexión Frontend ↔ Backend** | Las pantallas del cliente y admin en React actualmente operan con estado local/mock (`AuthContext`) listas para integrarse con la API REST. |
+| 🚧 | **Conexión Frontend ↔ Backend** | `AuthContext` ya utiliza la API Django para registro, login y perfil con JWT; la integración de los flujos de turnos y administración continúa pendiente. |
 | 🚧 | **Selección Dinámica de Horarios** | Desplegable de franjas horarias disponibles según la duración del servicio seleccionado y turnos ocupados. |
 | 📋 | **Notificaciones Automáticas** | Confirmaciones y recordatorios de turnos vía email o WhatsApp. |
 | 📋 | **Historial y Reportes de Gestión** | Indicadores administrativos sobre los servicios más solicitados e historial de atenciones por cliente. |
 
 ---
 
-> ⚠️ **Nota de seguridad — Autenticación mock (TP7)**
+> 🔐 **Nota de seguridad — Autenticación y sesión**
 >
-> La autenticación del **frontend React** (AuthContext) es un **mock educativo**: las contraseñas viven en el bundle de JavaScript del cliente y la validación ocurre completamente en el navegador. Esto es intencional para la etapa actual del trabajo práctico y **no constituye seguridad real**.
+> El login y el registro del frontend se procesan en la API Django; `AuthContext` consulta y actualiza el perfil mediante esa API y usa JWT. Los tokens se conservan en `localStorage` del navegador, por lo que deben protegerse frente a XSS y transmitirse únicamente por HTTPS en producción.
 >
-> - Las credenciales de demo (`cliente@holynails.com / 1234`, `admin@holynails.com / 1234`) son **públicas a propósito** y no deben considerarse secretas.
-> - El rol de un usuario puede modificarse desde las herramientas de desarrollo del navegador (React DevTools).
-> - **No desplegar en producción** con esta autenticación. En el TP8 se reemplazará por `POST /api/auth/login/` con JWT en el servidor (ya implementado en el backend Django).
+> - Los permisos efectivos se validan en el backend; las protecciones visuales de rutas en el frontend no sustituyen esa autorización.
 
 ---
 
@@ -249,14 +247,23 @@ cd turnero-proyecto-programacion1
    ```bash
    cp .env.example .env
    ```
-   Editar `.env` e ingresar las credenciales de PostgreSQL de su entorno local:
+   Generar una clave propia para este entorno:
+   ```bash
+   python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+   ```
+   Copiar el resultado directamente al campo `SECRET_KEY` de `.env` (no compartirlo ni subirlo al repositorio). Luego editar `.env` e ingresar las credenciales de PostgreSQL de su entorno local:
    ```env
+   SECRET_KEY=pegá_acá_la_clave_generada
+   DEBUG=true
    DB_NAME=programacion1_db
    DB_USER=postgres
    DB_PASSWORD=tu_contraseña_postgres
    DB_HOST=localhost
    DB_PORT=5432
    ```
+   `DEBUG` tiene valor predeterminado `false`; para desarrollo local por HTTP,
+   mantener `DEBUG=true` explícito en `.env`. Las subidas de fotos quedan
+   habilitadas por defecto cuando `DEBUG=true`.
 
 4. **Crear la base de datos en PostgreSQL**:
    Asegúrese de crear la base de datos `programacion1_db` en su servidor de PostgreSQL antes de continuar.
@@ -308,6 +315,53 @@ npm run dev
 ```
 - **Aplicación Web**: `http://localhost:3000/`
 
+## 🚀 Despliegue TP10 (configuración)
+
+### Backend en Railway
+
+1. Crear un servicio PostgreSQL y un servicio para este repositorio. En el servicio Django, Railway detecta `requirements.txt` e instala sus dependencias con Railpack.
+2. En **Settings → Build**, establecer **Build Command** en:
+   ```bash
+   python manage.py collectstatic --noinput
+   ```
+3. En **Settings → Deploy**, establecer **Start Command** en:
+   ```bash
+   gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+   ```
+   El `Procfile` de la raíz conserva el mismo comando. Configurar el comando explícitamente evita el inicio automático de Django de Railpack, que ejecutaría migraciones en cada arranque.
+4. En **Pre-deploy Command**, establecer:
+   ```bash
+   python manage.py migrate --noinput
+   ```
+   Railway lo ejecuta antes de activar la nueva versión, en un contenedor separado con las variables de entorno y conectividad privada. Las migraciones modifican la base de datos, no necesitan persistir archivos del contenedor.
+5. Configurar en el servicio Django, sin guardar secretos en el repositorio:
+   - `DATABASE_URL`: referencia a la URL del servicio PostgreSQL.
+   - `SECRET_KEY`: clave nueva, privada y distinta de cualquier clave local.
+   - `DEBUG=false`.
+   - `ALLOWED_HOSTS`: dominio público de la API y `healthcheck.railway.app`,
+     separados por coma y sin protocolo ni comodines; por ejemplo
+     `tu-api.up.railway.app,healthcheck.railway.app`.
+   - `CORS_ALLOWED_ORIGINS`: origen HTTPS de Vercel, sin barra final.
+   - `PROFILE_PHOTO_UPLOAD_ENABLED=false` hasta integrar almacenamiento
+     persistente. El backend responde HTTP 503 si se intenta subir una foto.
+   - `SECURE_HSTS_SECONDS=0`, `SECURE_HSTS_INCLUDE_SUBDOMAINS=false` y `SECURE_HSTS_PRELOAD=false` para mantener HSTS desactivado inicialmente. Las cookies de sesión y CSRF se marcan Secure automáticamente cuando `DEBUG=false`.
+   Railway proporciona `PORT`. El health check puede usar `/api/health/`; es una comprobación de proceso y no valida conectividad con PostgreSQL.
+6. Después de la primera migración, crear el administrador desde el entorno del servicio Django con `python manage.py createsuperuser`.
+
+Los comandos de build, start y pre-deploy se configuran en Railway, no en `railway.json`: la documentación vigente marca Config as Code como obsoleto y anuncia que los archivos existentes dejarán de funcionar el 1 de diciembre de 2026. No dejar el inicio Django automático, ya que el comando predeterminado de Railpack incluye `migrate`.
+
+No se configura `SECURE_PROXY_SSL_HEADER` ni `SECURE_SSL_REDIRECT` todavía. Railway documenta SSL automático en el borde, pero la documentación consultada no confirma que `X-Forwarded-Proto` se establezca y se controle antes de llegar a Gunicorn. Antes de habilitar `/admin/` en producción, verificar en Railway el esquema y el encabezado que recibe Django, que el proxy sustituya cualquier valor entrante y que el login con CSRF funcione por HTTPS. Las pruebas automatizadas ejercitan localmente el middleware CSRF de Django con encabezados simulados; no verifican ni demuestran el comportamiento del proxy de Railway. Mantener HSTS en cero hasta verificar HTTPS; no habilitar subdominios ni preload por defecto.
+
+### Frontend en Vercel
+
+Crear el proyecto con **Root Directory** `frontend/`, **Build Command** `npm run build` y **Output Directory** `dist`. Definir `VITE_API_URL` con la URL HTTPS pública de Railway en los entornos de producción y preview que se prueben. Mantener `VITE_PROFILE_PHOTO_UPLOAD_ENABLED=false` hasta configurar almacenamiento persistente; su valor predeterminado en builds de producción es deshabilitado. En Vite local, las subidas están disponibles por defecto y se pueden desactivar con `VITE_PROFILE_PHOTO_UPLOAD_ENABLED=false`. `frontend/vercel.json` reescribe las rutas de cliente a la aplicación para que React Router funcione al recargar o abrir una ruta directamente.
+
+### Pendientes antes de producción
+
+- Las fotos se almacenan actualmente en el filesystem local; `PROFILE_PHOTO_UPLOAD_ENABLED=false` en Railway y `VITE_PROFILE_PHOTO_UPLOAD_ENABLED=false` en Vercel mantienen deshabilitadas las subidas hasta integrar Cloudinary o almacenamiento persistente. La eliminación de fotos propias existentes sigue disponible.
+- El frontend debe apuntar al dominio de API correcto y el origen de Vercel debe estar permitido por CORS; actualizar CORS si se utiliza un dominio personalizado o previews.
+- Verificar endpoints públicos y protegidos, login/refresh JWT, panel de administración, subidas de fotos una vez configuradas, y capturar evidencias del health check y de flujos principales para el TP.
+
 ---
 
 ## 🧪 Tests
@@ -352,7 +406,7 @@ npm run lint      # linter (eslint .)
 - [ ] **Persistencia de Sesión JWT**: Almacenar y renovar de forma segura el token JWT en el cliente frontend.
 - [ ] **Panel de Administración interactivo en React**: Permitir la cancelación/confirmación de turnos y la gestión dinámica del catálogo de servicios desde la vista `/admin`.
 - [ ] **Selector dinámico de turnos**: Filtrar las horas disponibles en tiempo real según la duración del servicio seleccionado.
-- [ ] **Despliegue (Deploy)**: Configuración de servidor de producción para backend y hosting frontend.
+- [ ] **Completar despliegue TP10**: Configurar Railway y Vercel, resolver almacenamiento de imágenes y realizar pruebas de producción (ver sección de despliegue).
 
 ---
 

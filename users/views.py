@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -66,6 +67,17 @@ class ProfileFotoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        if not settings.PROFILE_PHOTO_UPLOAD_ENABLED:
+            return Response(
+                {
+                    'detail': (
+                        'La carga de fotos de perfil no está habilitada '
+                        'en este entorno.'
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
         serializer = FotoPerfilSerializer(
             data=request.data, context={'request': request},
         )

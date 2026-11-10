@@ -109,6 +109,18 @@ class BaseFotoPerfilTests(APITestCase):
 class SubidaTests(BaseFotoPerfilTests):
     """Subida exitosa, persistencia y URL devuelta."""
 
+    @override_settings(PROFILE_PHOTO_UPLOAD_ENABLED=False)
+    def test_subida_deshabilitada_responde_503_sin_guardar_archivos(self):
+        resp = self.subir(self.cliente, subida('avatar.jpg'))
+
+        self.assertEqual(
+            resp.status_code, status.HTTP_503_SERVICE_UNAVAILABLE, resp.data
+        )
+        self.assertIn('no está habilitada', resp.data['detail'])
+        self.assertEqual(os.listdir(self.media_root), [])
+        self.cliente.refresh_from_db()
+        self.assertFalse(self.cliente.foto)
+
     def test_subida_exitosa_persiste_la_foto_y_devuelve_su_url(self):
         resp = self.subir(self.cliente, subida('avatar.jpg'))
 

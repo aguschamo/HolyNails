@@ -20,6 +20,10 @@ const TELEFONO_PERMITIDO = /^[0-9\s()+.-]+$/
 // B11.2: límites de la foto, idénticos a FotoPerfilSerializer.
 const LIMITE_FOTO_BYTES = 2 * 1024 * 1024
 const FORMATOS_FOTO = ['image/jpeg', 'image/png', 'image/webp']
+const FOTO_PERFIL_SUBIDA_HABILITADA =
+  import.meta.env.VITE_PROFILE_PHOTO_UPLOAD_ENABLED === 'true' ||
+  (import.meta.env.DEV &&
+    import.meta.env.VITE_PROFILE_PHOTO_UPLOAD_ENABLED !== 'false')
 
 // Perfil de usuario (B11.1 + B11.2): nombre y teléfono editables con
 // PATCH /api/auth/profile/, y foto persistente con
@@ -92,7 +96,7 @@ function Perfil() {
 
   async function subirFotoSeleccionada() {
     // Evita subidas duplicadas mientras hay una petición en vuelo.
-    if (subiendoFoto || !archivo) return
+    if (!FOTO_PERFIL_SUBIDA_HABILITADA || subiendoFoto || !archivo) return
     setErrorFoto('')
     setExitoFoto('')
     setSubiendoFoto(true)
@@ -292,26 +296,34 @@ function Perfil() {
                     </div>
                   )}
 
-                  <label htmlFor="perfilFoto" className="form-label">
-                    Elegir imagen
-                  </label>
-                  <input
-                    id="perfilFoto"
-                    ref={inputFotoRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="form-control"
-                    onChange={handlePhoto}
-                    disabled={subiendoFoto || eliminandoFoto || guardando}
-                  />
-                  <div className="form-text mb-3">
-                    JPEG, PNG o WebP de hasta 2 MB.
-                    {hayFotoGuardada && !preview && ' Tu foto se guarda en tu cuenta.'}
-                    {preview && ' Vista previa: todavía no se guardó.'}
-                  </div>
+                  {FOTO_PERFIL_SUBIDA_HABILITADA ? (
+                    <>
+                      <label htmlFor="perfilFoto" className="form-label">
+                        Elegir imagen
+                      </label>
+                      <input
+                        id="perfilFoto"
+                        ref={inputFotoRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="form-control"
+                        onChange={handlePhoto}
+                        disabled={subiendoFoto || eliminandoFoto || guardando}
+                      />
+                      <div className="form-text mb-3">
+                        JPEG, PNG o WebP de hasta 2 MB.
+                        {hayFotoGuardada && !preview && ' Tu foto se guarda en tu cuenta.'}
+                        {preview && ' Vista previa: todavía no se guardó.'}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="form-text" role="status">
+                      La carga de fotos no está habilitada en este entorno.
+                    </p>
+                  )}
 
                   <div className="d-flex flex-wrap gap-2">
-                    {preview ? (
+                    {FOTO_PERFIL_SUBIDA_HABILITADA && preview ? (
                       <>
                         <button
                           type="button"

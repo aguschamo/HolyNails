@@ -8,6 +8,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 
@@ -15,13 +17,73 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 
-SECRET_KEY = 'django-insecure-tth!e7-gm&16#-zas#ny&8i8*nmrp(5$x8(j4n2e9=i_gi8w1b'
+def _env_bool(name, default):
+    """Lee una variable booleana del entorno (1/true/yes/on, 0/false/no/off)."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    value = value.strip().lower()
+    if value in ('1', 'true', 'yes', 'on'):
+        return True
+    if value in ('0', 'false', 'no', 'off'):
+        return False
+    raise ImproperlyConfigured(
+        f'La variable de entorno {name} tiene un valor booleano inválido: '
+        f'{value!r}. Usá true/false.'
+    )
 
-DEBUG = True
 
-ALLOWED_HOSTS = os.environ.get(
-    'ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver'
-).split(',')
+def _env_non_negative_int(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        parsed_value = int(value)
+    except ValueError as exc:
+        raise ImproperlyConfigured(
+            f'La variable de entorno {name} debe ser un entero no negativo.'
+        ) from exc
+    if parsed_value < 0:
+        raise ImproperlyConfigured(
+            f'La variable de entorno {name} debe ser un entero no negativo.'
+        )
+    return parsed_value
+
+
+# DEBUG se lee desde el entorno y queda desactivado por defecto para fallar
+# de forma segura si un entorno de producción omite la variable.
+DEBUG = _env_bool('DEBUG', False)
+
+# SECRET_KEY se lee desde el entorno o desde .env en desarrollo y siempre
+# es obligatoria. No arrancar con una clave insegura o compartida.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        'Falta la variable de entorno SECRET_KEY o está vacía. Definí una '
+        'clave válida en el entorno o en el archivo .env.'
+    )
+
+# Las cookies solo se envían por HTTPS en producción. En desarrollo local
+# se conservan compatibles con HTTP.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+# HSTS permanece desactivado por defecto hasta verificar HTTPS en el
+# dominio de producción. No habilitar subdominios/preload sin evaluar su alcance.
+SECURE_HSTS_SECONDS = _env_non_negative_int('SECURE_HSTS_SECONDS', 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool(
+    'SECURE_HSTS_INCLUDE_SUBDOMAINS', False
+)
+SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', False)
+
+# Hosts permitidos: lista separada por comas desde el entorno.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get(
+        'ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver'
+    ).split(',')
+    if host.strip()
+]
 
 
 INSTALLED_APPS = [
@@ -44,6 +106,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise debe quedar justo después de SecurityMiddleware: sirve
+    # los estáticos de STATIC_ROOT sin depender de DEBUG.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -72,16 +137,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'programacion1_db'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+# DATABASE_URL (por ejemplo la que inyecta Railway en el servicio
+# PostgreSQL) tiene prioridad. Si no está definida, se usa el mecanismo
+# local DB_* sin cambios. El motor sigue siendo PostgreSQL en los dos
+# casos: dj-database-url mapea postgres:// y postgresql:// a
+# django.db.backends.postgresql.
+DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL),
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'programacion1_db'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
+    }
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -139,12 +216,42 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# STATIC_ROOT: directorio donde vuelca los estáticos `collectstatic`;
+# WhiteNoise los sirve desde ahí en producción.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# API STORAGES de Django 6 (reemplaza a STATICFILES_STORAGE): los
+# estáticos los sirve WhiteNoise; los archivos subidos (default)
+# siguen en disco local. Se usa la variante comprimida sin manifest
+# para no exigir collectstatic previo en desarrollo.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+    },
+}
+
 # B11.2: almacenamiento de fotos de perfil (sólo local, sin servicios
 # externos). MEDIA_ROOT es donde se guardan los archivos subidos y
 # MEDIA_URL la base pública para referenciarlos.
+# NOTA: el disco local NO es apto para producción (Railway borra el
+# filesystem en cada deploy); migrar a Cloudinary queda pendiente para
+# una etapa posterior.
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+PROFILE_PHOTO_UPLOAD_ENABLED = _env_bool(
+    'PROFILE_PHOTO_UPLOAD_ENABLED', DEBUG
+)
 
+# Orígenes permitidos para el frontend, en una lista separada por comas
+# desde el entorno. Sin comodines: en producción hay que listar cada
+# origen real (por ejemplo la URL de Vercel).
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
+    origin.strip()
+    for origin in os.environ.get(
+        'CORS_ALLOWED_ORIGINS', 'http://localhost:3000'
+    ).split(',')
+    if origin.strip()
 ]
